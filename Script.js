@@ -643,8 +643,21 @@ function handleAction(tag){
     if (prev <= T && ang > T) handleAction('86G_RESET');
   }
 } else {
-  if (prev < THRESH.up   && ang >= THRESH.up)   handleAction(w.upper);
-  if (prev > THRESH.down && ang <= THRESH.down) handleAction(w.lower);
+  const S = window.SimState || window.state || (window.state = {});
+  if (prev < THRESH.up && ang >= THRESH.up) {
+    if (w.upper === 'MASTER_START' && S.MasterStopMask) {
+      S.MasterStopMask = false;
+      try { logDebug('Protections: Master Stop mask CLEARED (start)'); } catch (_) {}
+    }
+    handleAction(w.upper);
+  }
+  if (prev > THRESH.down && ang <= THRESH.down) {
+    if (w.lower === 'MASTER_STOP' && !S.MasterStopMask) {
+      S.MasterStopMask = true;
+      try { logDebug('Protections: Master Stop mask ENABLED'); } catch (_) {}
+    }
+    handleAction(w.lower);
+  }
 }
       prevAngles[key] = ang;
     }
@@ -1803,6 +1816,7 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
 
