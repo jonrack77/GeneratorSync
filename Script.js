@@ -258,7 +258,7 @@ const KV_MIN = 0.0, KV_MAX = 16.0;
 const FREQ_PER_GATE   = 3;   // Hz per % gate when rising
 const FREQ_DECEL_HZ_S = 3;   // fixed fall rate (Hz/s) when raw < current
 const FREQ_DECEL_SLOW_THRESH_HZ = 20; // Hz threshold to slow decel
-const FREQ_DECEL_SLOW_HZ_S = FREQ_DECEL_HZ_S / 2; // half-rate below threshold
+const FREQ_DECEL_SLOW_HZ_S = FREQ_DECEL_HZ_S / .25; // half-rate below threshold
 
 // AVR line-drop compensation (disabled if 0)
 const AVR_LDC_PU = 0.00;
@@ -1757,3 +1757,4 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
