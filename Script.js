@@ -263,7 +263,10 @@ const KV_SLEW_AUTO   = 1.2;   // kV/s when AVR is acting
 const KV_MIN = 0.0, KV_MAX = 16.0;
 
 /* Frequency tuning (single-mode) */
-const FREQ_PER_GATE   = 3;   // Hz per % gate when rising
+const FREQ_GATE_THRESH_PCT = 20;   // gate % breakpoint for frequency
+const FREQ_GATE_LOW_HZ_PER_PCT = 3;    // Hz per % gate below threshold
+const FREQ_GATE_HIGH_HZ_PER_PCT = 0.375; // Hz per % gate above threshold
+const FREQ_GATE_HIGH_INTERCEPT_HZ = 52.5; // offset for high range
 const FREQ_DECEL_HZ_S = 3;   // fixed fall rate (Hz/s) when raw < current
 const FREQ_DECEL_SLOW_THRESH_HZ = 20; // Hz threshold to slow decel
 const FREQ_DECEL_SLOW_HZ_S = FREQ_DECEL_HZ_S / .25; // half-rate below threshold
@@ -784,7 +787,15 @@ function updatePhysics(){
   /// Frequency (single-owner slew): on-grid=60; off-grid rises follow gate; falls decay at fixed rate
   {
     const onGrid = !!state['52G_Brk_Var'];
-    const raw    = onGrid ? 60 : (FREQ_PER_GATE * state.Gate_Pos_Var);
+     let raw;
+    if (onGrid) {
+      raw = 60;
+    } else {
+      const gate = state.Gate_Pos_Var;
+      raw = (gate <= FREQ_GATE_THRESH_PCT)
+        ? FREQ_GATE_LOW_HZ_PER_PCT * gate
+        : (FREQ_GATE_HIGH_HZ_PER_PCT * gate + FREQ_GATE_HIGH_INTERCEPT_HZ);
+    }
     const curr   = +state.Gen_Freq_Var || 0;
     const dt_s   = Math.max(0, dt) / 1000;
 
@@ -1765,6 +1776,7 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
 
