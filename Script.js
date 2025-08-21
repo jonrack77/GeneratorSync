@@ -117,7 +117,7 @@ const knobStates = {};
 
 /* ///////////// Section 4.B Per-switch wiring & event handlers (setAngle/onMove/onUp) ///////////// */
 switches.forEach(cfg => {
-  const svg = document.getElementById(cfg.parentId);
+  const svg  = document.getElementById(cfg.parentId);
   const knob = document.getElementById(cfg.knobId);
   const hitU = document.getElementById(cfg.upperHitId);
   const hitL = document.getElementById(cfg.lowerHitId);
@@ -127,7 +127,16 @@ switches.forEach(cfg => {
   const cx = bb.x + bb.width/2;
   const cy = bb.y + bb.height/2;
 
-  knobStates[cfg.knobId] = { isDragging:false, startX:0, currentAngle:0, centerX:cx, centerY:cy, minAngle:cfg.minAngle, maxAngle:cfg.maxAngle, type:cfg.type };
+  // AVR knob starts at +45° (AUTO); others at 0°
+  const initAngle = (cfg.knobId === 'Knob_AVR') ? 45 : 0;
+
+  knobStates[cfg.knobId] = {
+    isDragging:false, startX:0, currentAngle:initAngle,
+    centerX:cx, centerY:cy, minAngle:cfg.minAngle, maxAngle:cfg.maxAngle, type:cfg.type
+  };
+
+  // Apply initial visual angle
+  knob.setAttribute('transform', `rotate(${initAngle} ${cx} ${cy})`);
 
   function setAngle(knobId, ang){
     knobStates[knobId].currentAngle = ang;
@@ -163,22 +172,21 @@ switches.forEach(cfg => {
   }
 
   function onUp(){
-  if(!knobStates[cfg.knobId].isDragging) return;
-  knobStates[cfg.knobId].isDragging = false;
+    if(!knobStates[cfg.knobId].isDragging) return;
+    knobStates[cfg.knobId].isDragging = false;
 
-  // Improved: allow special return angle if defined
-  if (cfg.type === 'momentary') {
-    const returnAngle = (knobStates[cfg.knobId].momentaryReturnAngle != null)
-      ? knobStates[cfg.knobId].momentaryReturnAngle
-      : 0;
-    setAngle(cfg.knobId, returnAngle);
+    // Momentary returns to defined angle (default 0)
+    if (cfg.type === 'momentary') {
+      const returnAngle = (knobStates[cfg.knobId].momentaryReturnAngle != null)
+        ? knobStates[cfg.knobId].momentaryReturnAngle
+        : 0;
+      setAngle(cfg.knobId, returnAngle);
+    }
+
+    document.removeEventListener('mousemove', onMoveU);
+    document.removeEventListener('mousemove', onMoveL);
+    document.removeEventListener('mouseup', onUp);
   }
-
-  document.removeEventListener('mousemove', onMoveU);
-  document.removeEventListener('mousemove', onMoveL);
-  document.removeEventListener('mouseup', onUp);
-}
-
 });
 
 /* ///////////// Section 4.C angleOf helper ///////////// */
@@ -208,7 +216,7 @@ function angleOf(id){
   /* ///////////// Section 5.B State object (state) + exposure ///////////// */
 const state = {
   Master_Started:false,
-  AVR_On:false,
+  AVR_On:true,
   Sync_On:false,
 
   // NEW: Latches TRUE when 52G closes; does NOT auto-unlatch on open
@@ -1757,6 +1765,7 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
 
