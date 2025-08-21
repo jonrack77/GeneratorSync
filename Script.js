@@ -257,6 +257,8 @@ const KV_MIN = 0.0, KV_MAX = 16.0;
 /* Frequency tuning (single-mode) */
 const FREQ_PER_GATE   = 3;   // Hz per % gate when rising
 const FREQ_DECEL_HZ_S = 3;   // fixed fall rate (Hz/s) when raw < current
+const FREQ_DECEL_SLOW_THRESH_HZ = 20; // Hz threshold to slow decel
+const FREQ_DECEL_SLOW_HZ_S = FREQ_DECEL_HZ_S / 2; // half-rate below threshold
 
 // AVR line-drop compensation (disabled if 0)
 const AVR_LDC_PU = 0.00;
@@ -771,19 +773,22 @@ function updatePhysics(){
     state.Gate_Pos_Var = Gate_Setpoint;
   }
 
-  // Frequency (single-owner slew): on-grid=60; off-grid rises follow gate; falls decay at fixed rate
+  /// Frequency (single-owner slew): on-grid=60; off-grid rises follow gate; falls decay at fixed rate
   {
     const onGrid = !!state['52G_Brk_Var'];
     const raw    = onGrid ? 60 : (FREQ_PER_GATE * state.Gate_Pos_Var);
     const curr   = +state.Gen_Freq_Var || 0;
     const dt_s   = Math.max(0, dt) / 1000;
 
-    const next   = (raw >= curr) ? raw : Math.max(raw, curr - FREQ_DECEL_HZ_S * dt_s);
+    const decelRate = (curr > FREQ_DECEL_SLOW_THRESH_HZ)
+      ? FREQ_DECEL_HZ_S
+      : FREQ_DECEL_SLOW_HZ_S;
+
+    const next   = (raw >= curr) ? raw : Math.max(raw, curr - decelRate * dt_s);
 
     state.Gen_Freq_Var = clamp(next, 0, 94);
     state.Gen_RPM_Var  = state.Gen_Freq_Var * 1.667;
   }
-
   // Mark as having run (prevents immediate "Unit Stopped" right after Master Start)
   {
     if (state.Master_Started && (state.Gate_Pos_Var > 0.5 || state.Gen_Freq_Var > 0.2)) {
@@ -1750,4 +1755,5 @@ requestAnimationFrame(tick);
   clearInterval(window.__rpm_bind_iv);
   window.__rpm_bind_iv = setInterval(updateRPMText, 200);
   document.addEventListener("DOMContentLoaded", updateRPMText);
+
 })();
