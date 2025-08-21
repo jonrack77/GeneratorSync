@@ -246,7 +246,7 @@ try{ window.SimState = state; }catch(_){}
   let Gate_Setpoint = 0;
 
   /* ///////////// Section 5.D Master start/stop ramps (gateRamp/stopRamp) ///////////// */
-  const gateRamp = { active:false, from:0, to:19.83, dur:3000, t0:0 };
+  const gateRamp = { active:false, from:0, to:19.67, dur:3000, t0:0 };
   const stopRamp = { active:false, from:0, to:0,     dur:2000, t0:0 }; // ramp-to-zero on STOP
 
  /* ///////////// Section 5.E Voltage slew params (KV_* constants) ///////////// */
@@ -387,7 +387,7 @@ function handleAction(tag){
           stopRamp.active = false;
           gateRamp.active = true;
           gateRamp.from = (typeof Gate_Setpoint === 'number') ? Gate_Setpoint : 0;
-          gateRamp.to   = 19.83;
+          gateRamp.to   = 19.67;
           gateRamp.dur  = 3000;
           gateRamp.t0   = performance.now();
         }
@@ -1757,4 +1757,5 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
