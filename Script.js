@@ -819,6 +819,21 @@ function updatePhysics(){
 
     state.Gen_Freq_Var = clamp(next, 0, 94);
     state.Gen_RPM_Var  = state.Gen_Freq_Var * 1.667;
+
+    // Log major stopping events based on frequency thresholds
+    if (!state['52G_Brk_Var'] && state.Master_Started && curr > state.Gen_Freq_Var) {
+      if (!updatePhysics._liftPumpLogged && curr >= 40 && state.Gen_Freq_Var < 40) {
+        try { logDebug('Lift Pump On'); } catch (_) {}
+        updatePhysics._liftPumpLogged = true;
+      }
+      if (!updatePhysics._brakesLogged && curr >= 20 && state.Gen_Freq_Var < 20) {
+        try { logDebug('Brakes Applied'); } catch (_) {}
+        updatePhysics._brakesLogged = true;
+      }
+    } else {
+      updatePhysics._liftPumpLogged = false;
+      updatePhysics._brakesLogged = false;
+    }
   }
   // Mark as having run (prevents immediate "Unit Stopped" right after Master Start)
   {
@@ -1788,6 +1803,7 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
 
