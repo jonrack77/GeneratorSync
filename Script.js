@@ -424,11 +424,11 @@ function handleAction(tag){
       }
       // start STOP ramp
       gateRamp.active = false;
-      stopRamp.active = true;␊
-      stopRamp.from = (typeof Gate_Setpoint === 'number') ? Gate_Setpoint : 0;␊
+      stopRamp.active = true;
+      stopRamp.from = (typeof Gate_Setpoint === 'number') ? Gate_Setpoint : 0;
       stopRamp.to   = 0;␊
       stopRamp.dur  = STOP_RAMP_NORMAL_MS;
-      stopRamp.t0   = performance.now();␊
+      stopRamp.t0   = performance.now();
       break;
     }
 
@@ -1788,6 +1788,7 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
 
