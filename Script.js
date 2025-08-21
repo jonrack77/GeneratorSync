@@ -426,7 +426,7 @@ function handleAction(tag){
             state.Gen_kV_SP  = 13.8;
             state.Gen_kV_Var = state.Gen_kV_SP;
           } else {
-            state.Gen_kV_SP  = 13.65;
+            state.Gen_kV_SP  = 13.0;
             state.Gen_kV_Var = state.Gen_kV_SP;
           }
         } else {
@@ -1757,5 +1757,6 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
