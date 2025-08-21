@@ -426,7 +426,7 @@ function handleAction(tag){
       gateRamp.active = false;
       stopRamp.active = true;
       stopRamp.from = (typeof Gate_Setpoint === 'number') ? Gate_Setpoint : 0;
-      stopRamp.to   = 0;␊
+      stopRamp.to   = 0;
       stopRamp.dur  = STOP_RAMP_NORMAL_MS;
       stopRamp.t0   = performance.now();
       break;
@@ -513,12 +513,12 @@ function handleAction(tag){
         setFlag86(true);
         if(state['41_Brk_Var']){ state['41_Brk_Var'] = false; try{ logDebug('41: TRIPPED'); }catch(_){} }
         if(state['52G_Brk_Var']){ state['52G_Brk_Var'] = false; try{ logDebug('52G: TRIPPED'); }catch(_){} }
-        gateRamp.active = false;␊
-        stopRamp.active = true;␊
-        stopRamp.from = (typeof Gate_Setpoint === 'number') ? Gate_Setpoint : 0;␊
-        stopRamp.to   = 0;␊
+        gateRamp.active = false;
+        stopRamp.active = true;
+        stopRamp.from = (typeof Gate_Setpoint === 'number') ? Gate_Setpoint : 0;
+        stopRamp.to   = 0;
         stopRamp.dur  = STOP_RAMP_TRIP_MS;
-        stopRamp.t0   = performance.now();␊
+        stopRamp.t0   = performance.now();
         try{ logDebug('86G: TRIP'); }catch(_){}
       }
       break;
@@ -1788,6 +1788,7 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
 
