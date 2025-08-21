@@ -255,7 +255,12 @@ try{ window.SimState = state; }catch(_){}
 
   /* ///////////// Section 5.D Master start/stop ramps (gateRamp/stopRamp) ///////////// */
   const gateRamp = { active:false, from:0, to:19.67, dur:3000, t0:0 };
-  const stopRamp = { active:false, from:0, to:0,     dur:2000, t0:0 }; // ramp-to-zero on STOP
+  const stopRamp = { active:false, from:0, to:0,     dur:0,    t0:0 }; // ramp-to-zero on STOP
+
+  // Shutdown ramp durations (ms)
+  // Normal: Master STOP; Trip: protective trip or 86G lockout
+  const STOP_RAMP_NORMAL_MS = 2000;
+  const STOP_RAMP_TRIP_MS   = 500;
 
  /* ///////////// Section 5.E Voltage slew params (KV_* constants) ///////////// */
 const KV_SLEW_MANUAL = 2;     // kV/s tracking rate to SP (manual)
@@ -419,11 +424,11 @@ function handleAction(tag){
       }
       // start STOP ramp
       gateRamp.active = false;
-      stopRamp.active = true;
-      stopRamp.from = (typeof Gate_Setpoint === 'number') ? Gate_Setpoint : 0;
-      stopRamp.to   = 0;
-      stopRamp.dur  = 2000;
-      stopRamp.t0   = performance.now();
+      stopRamp.active = true;␊
+      stopRamp.from = (typeof Gate_Setpoint === 'number') ? Gate_Setpoint : 0;␊
+      stopRamp.to   = 0;␊
+      stopRamp.dur  = STOP_RAMP_NORMAL_MS;
+      stopRamp.t0   = performance.now();␊
       break;
     }
 
@@ -508,12 +513,12 @@ function handleAction(tag){
         setFlag86(true);
         if(state['41_Brk_Var']){ state['41_Brk_Var'] = false; try{ logDebug('41: TRIPPED'); }catch(_){} }
         if(state['52G_Brk_Var']){ state['52G_Brk_Var'] = false; try{ logDebug('52G: TRIPPED'); }catch(_){} }
-        gateRamp.active = false;
-        stopRamp.active = true;
-        stopRamp.from = (typeof Gate_Setpoint === 'number') ? Gate_Setpoint : 0;
-        stopRamp.to   = 0;
-        stopRamp.dur  = 5000;
-        stopRamp.t0   = performance.now();
+        gateRamp.active = false;␊
+        stopRamp.active = true;␊
+        stopRamp.from = (typeof Gate_Setpoint === 'number') ? Gate_Setpoint : 0;␊
+        stopRamp.to   = 0;␊
+        stopRamp.dur  = STOP_RAMP_TRIP_MS;
+        stopRamp.t0   = performance.now();␊
         try{ logDebug('86G: TRIP'); }catch(_){}
       }
       break;
@@ -761,15 +766,22 @@ function updatePhysics(){
   }
 
   // Governor: actual gate follows setpoint (separate rates for TRIP vs NORMAL)
-  const RATE_OPEN_NORMAL    = 5  / 1000; // %/ms (≈5 %/s)     — used when 52G OPEN
-  const RATE_CLOSED_NORMAL  = 20 / 1000; // %/ms (≈20 %/s)    — used when 52G CLOSED
-  const RATE_OPEN_TRIP      = 20 / 1000; // %/ms (≈20 %/s)    — TRIP ramp when 52G OPEN
-  const RATE_CLOSED_TRIP    = 80 / 1000; // %/ms (≈80 %/s)    — TRIP ramp when 52G CLOSED
+  // Governor: actual gate follows setpoint
+  // Rates are adjustable for normal vs. trip shutdowns
+  const GATE_SLEW = {
+    NORMAL_OPEN:   5  / 1000, // %/ms (≈5 %/s)     — 52G OPEN
+    NORMAL_CLOSED: 20 / 1000, // %/ms (≈20 %/s)    — 52G CLOSED
+    TRIP_OPEN:     20 / 1000, // %/ms (≈20 %/s)    — Trip with 52G OPEN
+    TRIP_CLOSED:   80 / 1000  // %/ms (≈80 %/s)    — Trip with 52G CLOSED
+  };
 
-  const isTripSlew = !!(stopRamp.active && state['86G_Trip_Var']);
+  const isTripSlew = !!(
+    state['86G_Trip_Var'] ||
+    state.Trip_32 || state.Trip_40 || state.Trip_27_59 || state.Trip_81
+  );
   const rate = state['52G_Brk_Var']
-    ? (isTripSlew ? RATE_CLOSED_TRIP : RATE_CLOSED_NORMAL)
-    : (isTripSlew ? RATE_OPEN_TRIP   : RATE_OPEN_NORMAL);
+    ? (isTripSlew ? GATE_SLEW.TRIP_CLOSED : GATE_SLEW.NORMAL_CLOSED)
+    : (isTripSlew ? GATE_SLEW.TRIP_OPEN   : GATE_SLEW.NORMAL_OPEN);
 
   const now = performance.now();
   if (typeof updatePhysics._tPrev !== 'number') updatePhysics._tPrev = now;
@@ -1776,6 +1788,7 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
 
