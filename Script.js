@@ -377,10 +377,24 @@ function handleAction(tag){
 
     /* ---- AVR switch ---- */
     case 'AVR_ON':
-      if (!state.AVR_On){ state.AVR_On = true; try { logDebug('AVR: AUTO'); } catch(_){} }
+      if (!state.AVR_On){
+        state.AVR_On = true;
+        try {
+          const sp = (+state.Gen_kV_SP || 0).toFixed(2);
+          const kv = (+state.Gen_kV_Var || 0).toFixed(2);
+          logDebug(`AVR: AUTO (SP: ${sp} kV, V: ${kv} kV)`);
+        } catch(_){}
+      }
       break;
     case 'AVR_OFF':
-      if (state.AVR_On){ state.AVR_On = false; try { logDebug('AVR: MANUAL'); } catch(_){} }
+      if (state.AVR_On){
+        state.AVR_On = false;
+        try {
+          const sp = (+state.Gen_kV_SP || 0).toFixed(2);
+          const kv = (+state.Gen_kV_Var || 0).toFixed(2);
+          logDebug(`AVR: MANUAL (SP: ${sp} kV, V: ${kv} kV)`);
+        } catch(_){}
+      }
       break;
 
     /* ---- Master ---- */
@@ -641,7 +655,18 @@ function handleAction(tag){
       const Qpu = clamp((state.MVAR || 0) / (RATED.MVAR_LAG_MAX || 1), -1, 1);
       const extra = 1 + MANUAL_Q_GAIN * Math.max(0, Qpu);
       const V_droop = Vbus * MANUAL_DROOP_PU * Ipu * extra;
-      state.Gen_kV_SP = kv + V_droop; // offsets immediate droop so voltage holds steady
+      const sp = kv + V_droop; // offsets immediate droop so voltage holds steady
+      const applySP = () => { state.Gen_kV_SP = sp; };
+      state.Gen_kV_SP = sp;
+      state.Gen_kV_Var = kv;
+      if (typeof requestAnimationFrame === 'function') {
+        try { requestAnimationFrame(applySP); } catch(_){}
+      }
+      try {
+        const spStr = sp.toFixed(2);
+        const kvStr = kv.toFixed(2);
+        logDebug(`AVR transition to MANUAL: SP ${spStr} kV, V ${kvStr} kV`);
+      } catch(_){}
     }
 
     // Delegate to original action handler
