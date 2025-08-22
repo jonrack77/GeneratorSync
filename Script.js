@@ -1637,6 +1637,10 @@ requestAnimationFrame(tick);
   // Track the gate position when a protective trip begins so 86G
   // only latches after the gates have actually driven below 20%.
   let drivebackStart = null;
+  // Additional timer to ensure gates remain <=20% for a short
+  // period before latching 86G. This avoids premature trip commands
+  // while the governor is still driving the gates closed.
+  let belowThreshSince = null;
 
   function rotateKnob(angle) {
     const state = knobStates[KNOB_ID];
@@ -1669,14 +1673,26 @@ requestAnimationFrame(tick);
       }
 
       // Trip 86G only if gates were above 20% and have now fallen to/below 20%
-      if (drivebackStart !== null && s.Gate_Pos_Var <= 20) {
-        handleAction('86G_TRIP');
-        rotateKnob(TRIP_ANGLE); // Visually snap knob to trip position.
-        drivebackStart = null;
+      if (drivebackStart !== null) {
+        if (s.Gate_Pos_Var <= 20) {
+          // Start or check hold timer while gates remain below threshold
+          if (belowThreshSince === null) {
+            belowThreshSince = performance.now();
+          } else if (performance.now() - belowThreshSince >= 500) {
+            handleAction('86G_TRIP');
+            rotateKnob(TRIP_ANGLE); // Visually snap knob to trip position.
+            drivebackStart = null;
+            belowThreshSince = null;
+          }
+        } else {
+          // Gates rose above threshold again before timeout; reset timer
+          belowThreshSince = null;
+        }
       }
     } else {
       // reset when no protection trip or already tripped
       drivebackStart = null;
+      belowThreshSince = null;
     }
 
     // Behavior while tripped (unchanged from original)
