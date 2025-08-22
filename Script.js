@@ -618,18 +618,23 @@ function handleAction(tag){
     // Pre-transition context
     const wasAVR = !!(state && state.AVR_On);
 
-    // On enabling AVR, freeze SP to the present terminal kV
+    // On enabling AVR, restore previously stored SP or freeze to present kV
     if (tag === 'AVR_ON' && !wasAVR && state) {
-      const kv = +state.Gen_kV_Var || 0;
-      if (typeof clamp === 'function') {
-        state.Gen_kV_SP = clamp(kv, KV_MIN, KV_MAX);
+      if (typeof state.__avrStoredSP === 'number') {
+        state.Gen_kV_SP = clamp(state.__avrStoredSP, KV_MIN, KV_MAX);
       } else {
-        state.Gen_kV_SP = Math.min(KV_MAX, Math.max(KV_MIN, kv));
+        const kv = +state.Gen_kV_Var || 0;
+        if (typeof clamp === 'function') {
+          state.Gen_kV_SP = clamp(kv, KV_MIN, KV_MAX);
+        } else {
+          state.Gen_kV_SP = Math.min(KV_MAX, Math.max(KV_MIN, kv));
+        }
       }
     }
 
-    // On disabling AVR, freeze SP so manual droop maintains present kV
+    // On disabling AVR, store SP and freeze so manual droop maintains present kV
     if (tag === 'AVR_OFF' && wasAVR && state) {
+      state.__avrStoredSP = state.Gen_kV_SP;
       const kv = Math.max(0, +state.Gen_kV_Var || 0);
       const Vbus = state.Bus_Voltage_kV || 13.8;
       const Ipu = clamp((state.AMPS || 0) / (RATED.AMPS || 1), 0, 2);
