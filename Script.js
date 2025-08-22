@@ -1824,6 +1824,18 @@ requestAnimationFrame(tick);
 })();
 
 
+(function ContactForm(){
+  const btn = document.getElementById('contactBtn');
+  const modal = document.getElementById('contactModal');
+  const close = document.getElementById('closeContact');
+  if (btn && modal && close) {
+    btn.addEventListener('click', () => modal.style.display = 'block');
+    close.addEventListener('click', () => modal.style.display = 'none');
+    modal.addEventListener('click', e => { if (e.target === modal) modal.style.display = 'none'; });
+  }
+})();
+
+
 })();
 
 
