@@ -153,7 +153,7 @@ switches.forEach(cfg => {
     (cfg.knobId === 'Knob_Sync') ? -45 : 0;
 
   knobStates[cfg.knobId] = {
-    isDragging:false, startX:0, currentAngle:initAngle,
+    isDragging:false, currentAngle:initAngle,
     centerX:cx, centerY:cy, minAngle:cfg.minAngle, maxAngle:cfg.maxAngle, type:cfg.type
   };
 
@@ -169,42 +169,43 @@ switches.forEach(cfg => {
     e.preventDefault();
     e.target.setPointerCapture(e.pointerId);
     knobStates[cfg.knobId].isDragging = true;
-    knobStates[cfg.knobId].startX = e.clientX;
+    setAngle(cfg.knobId, cfg.maxAngle);
     document.addEventListener('pointermove', onMoveU);
     document.addEventListener('pointerup', onUp);
   });
   function onMoveU(e){
     if(!knobStates[cfg.knobId].isDragging) return;
-    const dx = e.clientX - knobStates[cfg.knobId].startX;
-    const ang = clamp(dx * sensitivity, cfg.minAngle, cfg.maxAngle);
-    setAngle(cfg.knobId, ang);
+    setAngle(cfg.knobId, cfg.maxAngle);
   }
 
   hitL.addEventListener('pointerdown', (e)=>{
     e.preventDefault();
     e.target.setPointerCapture(e.pointerId);
     knobStates[cfg.knobId].isDragging = true;
-    knobStates[cfg.knobId].startX = e.clientX;
+    setAngle(cfg.knobId, cfg.minAngle);
     document.addEventListener('pointermove', onMoveL);
     document.addEventListener('pointerup', onUp);
   });
   function onMoveL(e){
     if(!knobStates[cfg.knobId].isDragging) return;
-    const dx = e.clientX - knobStates[cfg.knobId].startX;
-    const ang = clamp(-dx * sensitivity, cfg.minAngle, cfg.maxAngle);
-    setAngle(cfg.knobId, ang);
+    setAngle(cfg.knobId, cfg.minAngle);
   }
 
   function onUp(e){
     if(!knobStates[cfg.knobId].isDragging) return;
     knobStates[cfg.knobId].isDragging = false;
 
-    // Momentary returns to defined angle (default 0)
+    // Momentary returns to defined angle (default 0);
+    // Latching snaps to nearest extreme
     if (cfg.type === 'momentary') {
       const returnAngle = (knobStates[cfg.knobId].momentaryReturnAngle != null)
         ? knobStates[cfg.knobId].momentaryReturnAngle
         : 0;
       setAngle(cfg.knobId, returnAngle);
+    } else {
+      const curr = knobStates[cfg.knobId].currentAngle;
+      const mid = (cfg.minAngle + cfg.maxAngle) / 2;
+      setAngle(cfg.knobId, curr >= mid ? cfg.maxAngle : cfg.minAngle);
     }
 
     document.removeEventListener('pointermove', onMoveU);
