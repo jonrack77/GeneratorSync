@@ -793,23 +793,17 @@ function updatePhysics(){
     }
   }
 
-  // Governor: actual gate follows setpoint (separate rates for TRIP vs NORMAL)
-  // Governor: actual gate follows setpoint
-  // Rates are adjustable for normal vs. trip shutdowns
+  // Governor: actual gate follows setpoint. Rates differ for normal vs. trip shutdowns.
   const GATE_SLEW = {
-    NORMAL_OPEN:   5  / 1000, // %/ms (≈5 %/s)     — 52G OPEN
-    NORMAL_CLOSED: 20 / 1000, // %/ms (≈20 %/s)    — 52G CLOSED
-    TRIP_OPEN:     20 / 1000, // %/ms (≈20 %/s)    — Trip with 52G OPEN
-    TRIP_CLOSED:   80 / 1000  // %/ms (≈80 %/s)    — Trip with 52G CLOSED
+    NORMAL: 20 / 1000, // %/ms (≈20 %/s) — normal shutdown
+    TRIP:   80 / 1000  // %/ms (≈80 %/s) — trip
   };
 
   const isTripSlew = !!(
     state['86G_Trip_Var'] ||
     state.Trip_32 || state.Trip_40 || state.Trip_27_59 || state.Trip_81
   );
-  const rate = state['52G_Brk_Var']
-    ? (isTripSlew ? GATE_SLEW.TRIP_CLOSED : GATE_SLEW.NORMAL_CLOSED)
-    : (isTripSlew ? GATE_SLEW.TRIP_OPEN   : GATE_SLEW.NORMAL_OPEN);
+  const rate = isTripSlew ? GATE_SLEW.TRIP : GATE_SLEW.NORMAL;
 
   const now = performance.now();
   if (typeof updatePhysics._tPrev !== 'number') updatePhysics._tPrev = now;
