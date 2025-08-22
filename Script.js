@@ -809,6 +809,12 @@ function updatePhysics(){
     state.Gate_Pos_Var = Gate_Setpoint;
   }
 
+  // During a Master Stop, automatically open breakers once gates fall low
+  if (state.MasterStopMask && state.Gate_Pos_Var <= FREQ_GATE_THRESH_PCT) {
+    if (state['52G_Brk_Var']) handleAction('52G_OPEN');
+    if (state['41_Brk_Var']) handleAction('41_OPEN');
+  }
+
   /// Frequency (single-owner slew): on-grid=60; off-grid rises follow gate; falls decay at fixed rate
   {
     const onGrid = !!state['52G_Brk_Var'];
