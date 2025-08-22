@@ -82,7 +82,7 @@ function logDebug(message){
       const lower = msg.toLowerCase();
       if (lower.includes('alarm')){
         if (lower.includes('active') || lower.includes('true')){
-          line.style.color = 'red';
+          line.style.color = '#ffbf00';
         } else if (lower.includes('false') || lower.includes('cleared')){
           line.style.color = 'limegreen';
         }
