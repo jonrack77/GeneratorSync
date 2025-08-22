@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
 
+Sitemap: https://jrasmussen-gensync.netlify.app/sitemap_index.xml
 Sitemap: https://jrasmussen-gensync.netlify.app/sitemap.xml
