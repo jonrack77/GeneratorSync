@@ -81,14 +81,14 @@ function logDebug(message){
       line.textContent = msg;
       const lower = msg.toLowerCase();
       if (lower.includes('alarm')){
-        if (lower.includes('active') || lower.includes('true')){
-          line.style.color = '#ffbf00';
-        } else if (lower.includes('false') || lower.includes('cleared')){
-          line.style.color = 'limegreen';
+        if (lower.includes('normal') || lower.includes('inactive') || lower.includes('false') || lower.includes('cleared')){
+          line.style.color = '#006400';
+        } else {
+          line.style.color = '#b8860b';
         }
       } else if (lower.includes('trip')){
-        if (lower.includes('cleared') || lower.includes('reset') || lower.includes('false')){
-          line.style.color = 'limegreen';
+        if (lower.includes('cleared') || lower.includes('reset') || lower.includes('false') || lower.includes('inactive') || lower.includes('normal')){
+          line.style.color = '#006400';
         } else {
           line.style.color = 'red';
         }
@@ -662,14 +662,12 @@ function handleAction(tag){
   if (prev < THRESH.up && ang >= THRESH.up) {
     if (w.upper === 'MASTER_START' && S.MasterStopMask) {
       S.MasterStopMask = false;
-      try { logDebug('Protections: Master Stop mask CLEARED (start)'); } catch (_) {}
     }
     handleAction(w.upper);
   }
   if (prev > THRESH.down && ang <= THRESH.down) {
     if (w.lower === 'MASTER_STOP' && !S.MasterStopMask) {
       S.MasterStopMask = true;
-      try { logDebug('Protections: Master Stop mask ENABLED'); } catch (_) {}
     }
     handleAction(w.lower);
   }
@@ -1447,31 +1445,28 @@ requestAnimationFrame(tick);
     if (S[name] !== on){
       S[name] = on;
 
-      // --- Suppress OLD trip notifications (commented out on purpose) ---
-      if (name === 'Trip_32' || name === 'Trip_40' || name === 'Trip_27_59' || name === 'Trip_81') {
-        // old generic trip logs we no longer want:
-        // try { logDebug(`${name.replaceAll('_',' ').toUpperCase()}: ${on?'TRUE':'FALSE'}`); } catch(_){}
-        return; // keep logic intact; no debug line
-      }
-      // ------------------------------------------------------------------
-
-      // Alarm messages
       if (name.startsWith('Alarm_')){
-        const onoff = on ? 'ACTIVE' : 'FALSE';
         const code = name.split('_')[1];
-        try { logDebug(`ALARM ${code}: ${onoff}`); } catch(_) {}
+        let msg;
+        switch(code){
+          case '32': msg = on ? 'Reverse Power Active' : 'Reverse Power Inactive'; break;
+          case '59': msg = on ? 'Overvoltage Alarm' : 'Voltage Normal'; break;
+          case '81': msg = on ? 'Frequency Abnormal' : 'Frequency Normal'; break;
+          default:   msg = `ALARM ${code}: ${on ? 'ACTIVE' : 'FALSE'}`;
+        }
+        try { logDebug(msg); } catch(_) {}
         return;
       }
 
-      // Trip messages (explicit)
-      let msg = '';
-      if (name === 'Trip_32' && on) msg = 'TRIP 32 (Reverse Power) LATCHED';
-      if (name === 'Trip_40' && on) msg = '41: TRIPPED';
-      if (name === 'Trip_27_59' && on) msg = 'TRIP 27 (Undervoltage) LATCHED; TRIP 59 (Overvoltage) LATCHED';
-      if (name === 'Trip_81' && on) msg = 'TRIP 81 (Frequency) LATCHED';
-      if (msg){
-        try { logDebug(msg); } catch(_) {}
+      if (name === 'Trip_32' && on){
+        try { logDebug('Trip: Reverse Power'); } catch(_) {}
+        return;
       }
+      if (name === 'Trip_40' && on){
+        try { logDebug('Trip: Loss of Field'); } catch(_) {}
+        return;
+      }
+      // Trip_27_59 and Trip_81 messages handled directly in evaluateTrips
     }
   }
 
@@ -1594,8 +1589,8 @@ requestAnimationFrame(tick);
     if ((!S.Trip_27_59) && (trip27 || trip59)) {
       logFlag('Trip_27_59', true);
       try {
-        if (trip27) logDebug('TRIP 27 (Undervoltage) LATCHED');
-        if (trip59) logDebug('TRIP 59 (Overvoltage) LATCHED');
+        if (trip27) logDebug('Trip: Undervoltage');
+        if (trip59) logDebug('Trip: Overvoltage');
       } catch(_) {}
     }
 
@@ -1605,8 +1600,8 @@ requestAnimationFrame(tick);
     if (!S.Trip_81 && ((PROT.t81UF >= 0.5) || (PROT.t81OF >= 0.5))) {
       logFlag('Trip_81', true);
       try {
-        if (PROT.t81UF >= 0.5) logDebug('TRIP 81 (Underfrequency) LATCHED');
-        if (PROT.t81OF >= 0.5) logDebug('TRIP 81 (Overfrequency) LATCHED');
+        if (PROT.t81UF >= 0.5) logDebug('Trip: Underfrequency');
+        if (PROT.t81OF >= 0.5) { logDebug('Overspeed Detected'); logDebug('Trip: Overfrequency'); }
       } catch(_) {}
     }
   };
@@ -1806,12 +1801,10 @@ requestAnimationFrame(tick);
       if (tag === 'MASTER_STOP') {
         if (!S.MasterStopMask){
           S.MasterStopMask = true;
-          try{ logDebug('Protections: Master Stop mask ENABLED'); }catch(_){}
         }
       } else if (tag === 'MASTER_START') {
         if (S.MasterStopMask){
           S.MasterStopMask = false;
-          try{ logDebug('Protections: Master Stop mask CLEARED (start)'); }catch(_){}
         }
       }
     }catch(_){}
@@ -1830,7 +1823,6 @@ requestAnimationFrame(tick);
                           ((+S.Gen_Freq_Var || 0) <= 0.2);
           if (stopped){
             S.MasterStopMask = false;
-            try{ logDebug('Protections: Master Stop mask CLEARED (unit stopped)'); }catch(_){}
           }
         }
       }catch(_){}
