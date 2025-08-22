@@ -876,6 +876,8 @@ function updatePhysics(){
       state.Master_Started = false;
       stopRamp.active      = false;
       updatePhysics._wasRunning = false;
+      // Mark generator offline so protections don't evaluate after a normal stop
+      state.GeneratorOnline = false;
       logDebug('Unit Stopped');
     }
   }
