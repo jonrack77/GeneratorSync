@@ -1634,7 +1634,9 @@ requestAnimationFrame(tick);
 
   const switchConfig = switches.find(s => s.knobId === KNOB_ID);
   const originalType = switchConfig ? switchConfig.type : 'latching';
-  let drivebackActive = false; // track auto-trip driveback progress
+  // Track the gate position when a protective trip begins so 86G
+  // only latches after the gates have actually driven below 20%.
+  let drivebackStart = null;
 
   function rotateKnob(angle) {
     const state = knobStates[KNOB_ID];
@@ -1661,17 +1663,20 @@ requestAnimationFrame(tick);
       Gate_Setpoint = 0;
       gateRamp.active = false; // Ensure any conflicting start ramps are cancelled.
 
-      // Only monitor for 86G trip if gates were initially above threshold
-      if (!drivebackActive && s.Gate_Pos_Var > 20) drivebackActive = true;
+      // Record starting gate position only once when protection first hits
+      if (drivebackStart === null && s.Gate_Pos_Var > 20) {
+        drivebackStart = s.Gate_Pos_Var;
+      }
 
-      // Trip 86G once gates fall to 20%
-      if (drivebackActive && s.Gate_Pos_Var <= 20) {
+      // Trip 86G only if gates were above 20% and have now fallen to/below 20%
+      if (drivebackStart !== null && s.Gate_Pos_Var <= 20) {
         handleAction('86G_TRIP');
         rotateKnob(TRIP_ANGLE); // Visually snap knob to trip position.
-        drivebackActive = false;
+        drivebackStart = null;
       }
     } else {
-      drivebackActive = false; // reset when no protection trip or already tripped
+      // reset when no protection trip or already tripped
+      drivebackStart = null;
     }
 
     // Behavior while tripped (unchanged from original)
