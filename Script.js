@@ -153,7 +153,7 @@ switches.forEach(cfg => {
     (cfg.knobId === 'Knob_Sync') ? -45 : 0;
 
   knobStates[cfg.knobId] = {
-    isDragging:false, currentAngle:initAngle,
+    isDragging:false, startX:0, currentAngle:initAngle,
     centerX:cx, centerY:cy, minAngle:cfg.minAngle, maxAngle:cfg.maxAngle, type:cfg.type
   };
 
@@ -165,33 +165,35 @@ switches.forEach(cfg => {
     knob.setAttribute('transform', `rotate(${ang} ${cx} ${cy})`);
   }
 
-  hitU.addEventListener('pointerdown', (e)=>{
+  hitU.addEventListener('mousedown', (e)=>{
     e.preventDefault();
-    e.target.setPointerCapture(e.pointerId);
     knobStates[cfg.knobId].isDragging = true;
-    setAngle(cfg.knobId, cfg.maxAngle);
-    document.addEventListener('pointermove', onMoveU);
-    document.addEventListener('pointerup', onUp);
+    knobStates[cfg.knobId].startX = e.clientX;
+    document.addEventListener('mousemove', onMoveU);
+    document.addEventListener('mouseup', onUp);
   });
   function onMoveU(e){
     if(!knobStates[cfg.knobId].isDragging) return;
-    setAngle(cfg.knobId, cfg.maxAngle);
+    const dx = e.clientX - knobStates[cfg.knobId].startX;
+    const ang = clamp(dx * sensitivity, cfg.minAngle, cfg.maxAngle);
+    setAngle(cfg.knobId, ang);
   }
 
-  hitL.addEventListener('pointerdown', (e)=>{
+  hitL.addEventListener('mousedown', (e)=>{
     e.preventDefault();
-    e.target.setPointerCapture(e.pointerId);
     knobStates[cfg.knobId].isDragging = true;
-    setAngle(cfg.knobId, cfg.minAngle);
-    document.addEventListener('pointermove', onMoveL);
-    document.addEventListener('pointerup', onUp);
+    knobStates[cfg.knobId].startX = e.clientX;
+    document.addEventListener('mousemove', onMoveL);
+    document.addEventListener('mouseup', onUp);
   });
   function onMoveL(e){
     if(!knobStates[cfg.knobId].isDragging) return;
-    setAngle(cfg.knobId, cfg.minAngle);
+    const dx = e.clientX - knobStates[cfg.knobId].startX;
+    const ang = clamp(-dx * sensitivity, cfg.minAngle, cfg.maxAngle);
+    setAngle(cfg.knobId, ang);
   }
 
-  function onUp(e){
+  function onUp(){
     if(!knobStates[cfg.knobId].isDragging) return;
     knobStates[cfg.knobId].isDragging = false;
 
@@ -208,10 +210,9 @@ switches.forEach(cfg => {
       setAngle(cfg.knobId, curr >= mid ? cfg.maxAngle : cfg.minAngle);
     }
 
-    document.removeEventListener('pointermove', onMoveU);
-    document.removeEventListener('pointermove', onMoveL);
-    document.removeEventListener('pointerup', onUp);
-    try { e.target.releasePointerCapture(e.pointerId); } catch(_){ }
+    document.removeEventListener('mousemove', onMoveU);
+    document.removeEventListener('mousemove', onMoveL);
+    document.removeEventListener('mouseup', onUp);
   }
 });
 
@@ -1727,13 +1728,9 @@ requestAnimationFrame(tick);
     btn.dataset._dbgHooked = '1';
     
 
-    // Use both pointerdown and click for safety
-    btn.addEventListener('pointerdown', () => {
-     
-    }, {passive:true});
-
+    // Use click for safety
     btn.addEventListener('click', () => {
-      
+
     }, {passive:true});
 
     return true;
@@ -1781,7 +1778,7 @@ requestAnimationFrame(tick);
   const btn = document.getElementById('Button_RESET');
   if(btn && !btn.dataset._resetHandler){
     btn.dataset._resetHandler = '1';
-    btn.addEventListener('pointerdown', doReset, {passive:true});
+    btn.addEventListener('mousedown', doReset, {passive:true});
   }
 })();
 
