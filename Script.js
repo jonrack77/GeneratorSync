@@ -1453,6 +1453,7 @@ requestAnimationFrame(tick);
         switch(code){
           case '32': msg = on ? 'Reverse Power Active' : 'Reverse Power Inactive'; break;
           case '55': msg = on ? 'Power Factor Abnormal' : 'Power Factor Normal'; break;
+          case '27': msg = on ? 'Undervoltage Alarm' : 'Voltage Normal'; break;
           case '59': msg = on ? 'Overvoltage Alarm' : 'Voltage Normal'; break;
           case '81': msg = on ? 'Frequency Abnormal' : 'Frequency Normal'; break;
           default:   msg = `ALARM ${code}: ${on ? 'ACTIVE' : 'FALSE'}`;
