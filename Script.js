@@ -277,7 +277,7 @@ try{ window.SimState = state; }catch(_){}
   // Shutdown ramp durations (ms)
   // Normal: Master STOP; Trip: protective trip or 86G lockout
   const STOP_RAMP_NORMAL_MS = 2000;
-  const STOP_RAMP_TRIP_MS   = 500;
+  const STOP_RAMP_TRIP_MS   = 10000;
 
  /* ///////////// Section 5.E Voltage slew params (KV_* constants) ///////////// */
 const KV_SLEW_MANUAL = 2;     // kV/s tracking rate to SP (manual)
@@ -1850,6 +1850,7 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
 
