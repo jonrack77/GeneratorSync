@@ -618,22 +618,20 @@ function handleAction(tag){
     // Pre-transition context
     const wasAVR = !!(state && state.AVR_On);
 
-    // On enabling AVR while paralleled, freeze SP to the present terminal kV
-    if (tag === 'AVR_ON' && !wasAVR && state && state['52G_Brk_Var']) {
+    // On enabling AVR, freeze SP to the present terminal kV
+    if (tag === 'AVR_ON' && !wasAVR && state) {
       const kv = +state.Gen_kV_Var || 0;
       if (typeof clamp === 'function') {
         state.Gen_kV_SP = clamp(kv, KV_MIN, KV_MAX);
       } else {
         state.Gen_kV_SP = Math.min(KV_MAX, Math.max(KV_MIN, kv));
       }
-      
     }
 
-    // On disabling AVR while field or tie is live, freeze SP to current kV
-    if (tag === 'AVR_OFF' && wasAVR && state && (state['41_Brk_Var'] || state['52G_Brk_Var'])) {
+    // On disabling AVR, freeze SP to current kV
+    if (tag === 'AVR_OFF' && wasAVR && state) {
       const kv = Math.max(0, +state.Gen_kV_Var || 0);
       state.Gen_kV_SP = kv; // manual mode allows up to current value (upper bound handled elsewhere)
-      
     }
 
     // Delegate to original action handler
