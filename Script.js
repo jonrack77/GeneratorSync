@@ -73,17 +73,30 @@ function __setDebugWindow(win){ __DEBUG_WIN = win; }
 /* ///////////// Section 2.B logDebug ///////////// */
 function logDebug(message){
   try {
-    try { console.log(message); } catch(_) {}
+    const msg = String(message);
+    try { console.log(msg); } catch(_) {}
     const el = document.getElementById('Debug_Log');
     if (el){
-      if (typeof el.value === 'string'){
-        el.value += (el.value ? "\n" : "") + String(message);
-      } else {
-        el.textContent = (el.textContent ? el.textContent + "\n" : "") + String(message);
+      const line = document.createElement('div');
+      line.textContent = msg;
+      const lower = msg.toLowerCase();
+      if (lower.includes('alarm')){
+        if (lower.includes('active') || lower.includes('true')){
+          line.style.color = 'red';
+        } else if (lower.includes('false') || lower.includes('cleared')){
+          line.style.color = 'limegreen';
+        }
+      } else if (lower.includes('trip')){
+        if (lower.includes('cleared') || lower.includes('reset') || lower.includes('false')){
+          line.style.color = 'limegreen';
+        } else {
+          line.style.color = 'red';
+        }
       }
+      el.appendChild(line);
     }
     if(__DEBUG_WIN && !__DEBUG_WIN.closed){
-      __DEBUG_WIN.postMessage(String(message), '*');
+      __DEBUG_WIN.postMessage(msg, '*');
     }
   } catch(_) {}
 }

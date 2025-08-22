@@ -11125,7 +11125,7 @@
       background:#0b0f14; color:#e5e7eb;
       border:1px solid #6b7280; border-radius:6px;
       padding:8px; font:12px/1.35 Consolas,"Courier New",monospace;
-      scrollbar-width:none;
+      scrollbar-width:none; white-space:pre-wrap;
     }
     #Debug_Log::-webkit-scrollbar{ width:0; height:0; }
     #Debug_Slider{
@@ -11154,7 +11154,7 @@
 
     var dock = document.createElement('div');
     dock.id = 'DebugDock';
-    dock.innerHTML = '<textarea id="Debug_Log" spellcheck="false"></textarea>' +
+    dock.innerHTML = '<div id="Debug_Log" spellcheck="false"></div>' +
                      '<input id="Debug_Slider" type="range" min="0" max="100" value="0">';
     var _wrap = document.getElementById("sim-wrap");
     (_wrap ? _wrap : document.body).appendChild(dock);
