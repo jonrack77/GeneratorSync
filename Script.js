@@ -165,13 +165,12 @@ switches.forEach(cfg => {
     knob.setAttribute('transform', `rotate(${ang} ${cx} ${cy})`);
   }
 
-  hitU.addEventListener('pointerdown', (e)=>{
+  hitU.addEventListener('mousedown', (e)=>{
     e.preventDefault();
-    e.target.setPointerCapture(e.pointerId);
     knobStates[cfg.knobId].isDragging = true;
     knobStates[cfg.knobId].startX = e.clientX;
-    document.addEventListener('pointermove', onMoveU);
-    document.addEventListener('pointerup', onUp);
+    document.addEventListener('mousemove', onMoveU);
+    document.addEventListener('mouseup', onUp);
   });
   function onMoveU(e){
     if(!knobStates[cfg.knobId].isDragging) return;
@@ -180,13 +179,12 @@ switches.forEach(cfg => {
     setAngle(cfg.knobId, ang);
   }
 
-  hitL.addEventListener('pointerdown', (e)=>{
+  hitL.addEventListener('mousedown', (e)=>{
     e.preventDefault();
-    e.target.setPointerCapture(e.pointerId);
     knobStates[cfg.knobId].isDragging = true;
     knobStates[cfg.knobId].startX = e.clientX;
-    document.addEventListener('pointermove', onMoveL);
-    document.addEventListener('pointerup', onUp);
+    document.addEventListener('mousemove', onMoveL);
+    document.addEventListener('mouseup', onUp);
   });
   function onMoveL(e){
     if(!knobStates[cfg.knobId].isDragging) return;
@@ -195,7 +193,7 @@ switches.forEach(cfg => {
     setAngle(cfg.knobId, ang);
   }
 
-  function onUp(e){
+  function onUp(){
     if(!knobStates[cfg.knobId].isDragging) return;
     knobStates[cfg.knobId].isDragging = false;
 
@@ -207,10 +205,9 @@ switches.forEach(cfg => {
       setAngle(cfg.knobId, returnAngle);
     }
 
-    document.removeEventListener('pointermove', onMoveU);
-    document.removeEventListener('pointermove', onMoveL);
-    document.removeEventListener('pointerup', onUp);
-    try { e.target.releasePointerCapture(e.pointerId); } catch(_){ }
+    document.removeEventListener('mousemove', onMoveU);
+    document.removeEventListener('mousemove', onMoveL);
+    document.removeEventListener('mouseup', onUp);
   }
 });
 
