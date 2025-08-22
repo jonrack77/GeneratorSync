@@ -127,8 +127,10 @@ switches.forEach(cfg => {
   const cx = bb.x + bb.width/2;
   const cy = bb.y + bb.height/2;
 
-  // AVR knob starts at +45° (AUTO); others at 0°
-  const initAngle = (cfg.knobId === 'Knob_AVR') ? 45 : 0;
+  // AVR knob starts at +45° (AUTO); Sync knob at -45°; others at 0°
+  const initAngle =
+    (cfg.knobId === 'Knob_AVR') ? 45 :
+    (cfg.knobId === 'Knob_Sync') ? -45 : 0;
 
   knobStates[cfg.knobId] = {
     isDragging:false, startX:0, currentAngle:initAngle,
@@ -1632,6 +1634,7 @@ requestAnimationFrame(tick);
 
   const switchConfig = switches.find(s => s.knobId === KNOB_ID);
   const originalType = switchConfig ? switchConfig.type : 'latching';
+  let drivebackActive = false; // track auto-trip driveback progress
 
   function rotateKnob(angle) {
     const state = knobStates[KNOB_ID];
@@ -1658,12 +1661,17 @@ requestAnimationFrame(tick);
       Gate_Setpoint = 0;
       gateRamp.active = false; // Ensure any conflicting start ramps are cancelled.
 
-      // Check if the actual gate position has driven back far enough to trip.
-      if (s.Gate_Pos_Var <= 30) {
-        // If below the threshold, execute the 86G trip action.
+      // Only monitor for 86G trip if gates were initially above threshold
+      if (!drivebackActive && s.Gate_Pos_Var > 20) drivebackActive = true;
+
+      // Trip 86G once gates fall to 20%
+      if (drivebackActive && s.Gate_Pos_Var <= 20) {
         handleAction('86G_TRIP');
         rotateKnob(TRIP_ANGLE); // Visually snap knob to trip position.
+        drivebackActive = false;
       }
+    } else {
+      drivebackActive = false; // reset when no protection trip or already tripped
     }
 
     // Behavior while tripped (unchanged from original)
