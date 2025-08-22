@@ -795,8 +795,8 @@ function updatePhysics(){
 
   // Governor: actual gate follows setpoint. Rates differ for normal vs. trip shutdowns.
   const GATE_SLEW = {
-    NORMAL: 20 / 1000, // %/ms (≈20 %/s) — normal shutdown
-    TRIP:   2 / 1000  // %/ms (≈80 %/s) — trip
+    NORMAL: 10 / 1000, // %/ms (≈20 %/s) — normal shutdown
+    TRIP:   6 / 1000  // %/ms (≈80 %/s) — trip
   };
 
   const isTripSlew = !!(
@@ -1844,6 +1844,7 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
 
