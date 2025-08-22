@@ -87,6 +87,8 @@ function logDebug(message){
         } else {
           color = 'red';
         }
+      } else if (lower.includes('overspeed')) {
+        color = 'red';
       } else if (lower.includes('alarm') || lower.includes('active') || lower.includes('inactive') || lower.includes('abnormal') || lower.includes('normal')){
         if (lower.includes('inactive') || lower.includes('normal') || lower.includes('false') || lower.includes('cleared')){
           color = '#006400';
