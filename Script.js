@@ -80,19 +80,21 @@ function logDebug(message){
       const line = document.createElement('div');
       line.textContent = msg;
       const lower = msg.toLowerCase();
-      if (lower.includes('alarm')){
-        if (lower.includes('normal') || lower.includes('inactive') || lower.includes('false') || lower.includes('cleared')){
-          line.style.color = '#006400';
-        } else {
-          line.style.color = '#b8860b';
-        }
-      } else if (lower.includes('trip')){
+      let color;
+      if (lower.includes('trip')){
         if (lower.includes('cleared') || lower.includes('reset') || lower.includes('false') || lower.includes('inactive') || lower.includes('normal')){
-          line.style.color = '#006400';
+          color = '#006400';
         } else {
-          line.style.color = 'red';
+          color = 'red';
+        }
+      } else if (lower.includes('alarm') || lower.includes('active') || lower.includes('inactive') || lower.includes('abnormal') || lower.includes('normal')){
+        if (lower.includes('inactive') || lower.includes('normal') || lower.includes('false') || lower.includes('cleared')){
+          color = '#006400';
+        } else {
+          color = '#b8860b';
         }
       }
+      if (color) line.style.color = color;
       el.appendChild(line);
     }
     if(__DEBUG_WIN && !__DEBUG_WIN.closed){
@@ -1450,6 +1452,7 @@ requestAnimationFrame(tick);
         let msg;
         switch(code){
           case '32': msg = on ? 'Reverse Power Active' : 'Reverse Power Inactive'; break;
+          case '55': msg = on ? 'Power Factor Abnormal' : 'Power Factor Normal'; break;
           case '59': msg = on ? 'Overvoltage Alarm' : 'Voltage Normal'; break;
           case '81': msg = on ? 'Frequency Abnormal' : 'Frequency Normal'; break;
           default:   msg = `ALARM ${code}: ${on ? 'ACTIVE' : 'FALSE'}`;
