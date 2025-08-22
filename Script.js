@@ -1642,12 +1642,9 @@ requestAnimationFrame(tick);
 
   const switchConfig = switches.find(s => s.knobId === KNOB_ID);
   const originalType = switchConfig ? switchConfig.type : 'latching';
-  // Track the gate position when a protective trip begins so 86G
-  // only latches after the gates have actually driven below 20%.
-  let drivebackStart = null;
-  // Additional timer to ensure gates remain <=20% for a short
-  // period before latching 86G. This avoids premature trip commands
-  // while the governor is still driving the gates closed.
+  // Timer to ensure gates remain <=20% for a short period before
+  // latching 86G. This avoids premature trip commands while the
+  // governor is still driving the gates closed.
   let belowThreshSince = null;
 
   function rotateKnob(angle) {
@@ -1675,31 +1672,22 @@ requestAnimationFrame(tick);
       Gate_Setpoint = 0;
       gateRamp.active = false; // Ensure any conflicting start ramps are cancelled.
 
-      // Record starting gate position only once when protection first hits
-      if (drivebackStart === null && s.Gate_Pos_Var > 20) {
-        drivebackStart = s.Gate_Pos_Var;
-      }
-
-      // Trip 86G only if gates were above 20% and have now fallen to/below 20%
-      if (drivebackStart !== null) {
-        if (s.Gate_Pos_Var <= 20) {
-          // Start or check hold timer while gates remain below threshold
-          if (belowThreshSince === null) {
-            belowThreshSince = performance.now();
-          } else if (performance.now() - belowThreshSince >= 500) {
-            handleAction('86G_TRIP');
-            rotateKnob(TRIP_ANGLE); // Visually snap knob to trip position.
-            drivebackStart = null;
-            belowThreshSince = null;
-          }
-        } else {
-          // Gates rose above threshold again before timeout; reset timer
+      // Once gates fall to/below 20%, start a hold timer. When
+      // they remain below threshold for 500 ms, trip 86G.
+      if (s.Gate_Pos_Var <= 20) {
+        if (belowThreshSince === null) {
+          belowThreshSince = performance.now();
+        } else if (performance.now() - belowThreshSince >= 500) {
+          handleAction('86G_TRIP');
+          rotateKnob(TRIP_ANGLE); // Visually snap knob to trip position.
           belowThreshSince = null;
         }
+      } else {
+        // Gates above threshold again before timeout; reset timer
+        belowThreshSince = null;
       }
     } else {
       // reset when no protection trip or already tripped
-      drivebackStart = null;
       belowThreshSince = null;
     }
 
