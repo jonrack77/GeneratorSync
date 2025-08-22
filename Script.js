@@ -96,6 +96,9 @@ function logDebug(message){
       }
       if (color) line.style.color = color;
       el.appendChild(line);
+      // Always scroll to the bottom so newest messages are visible
+      // even when the log overflows the viewable area
+      try { el.scrollTop = el.scrollHeight; } catch (_) {}
     }
     if(__DEBUG_WIN && !__DEBUG_WIN.closed){
       __DEBUG_WIN.postMessage(msg, '*');
