@@ -379,7 +379,7 @@ function handleAction(tag){
       const k86   = (typeof knobStates !== 'undefined') ? knobStates['Knob_86G'] : null;
       const ang86 = (k86 && typeof k86.currentAngle === 'number') ? k86.currentAngle : 0;
       if (ang86 <= -1){ try{ logDebug('Master: BLOCKED (86G Permissive)'); }catch(_){ } break; }
-      if (state['86G_Trip_Var']){ try{ logDebug('Master: BLOCKED (86G Tripped)'); }catch(_){ } break; }
+      if (state['86G_Trip_Var']){ try{ logDebug('Master: BLOCKED (86G: Trip)'); }catch(_){ } break; }
 
       // prevent double staging
       if (state.__prestartBusy) break;
@@ -528,8 +528,8 @@ function handleAction(tag){
       if(!state['86G_Trip_Var']){
         state['86G_Trip_Var'] = true;
         setFlag86(true);
-        if(state['41_Brk_Var']){ state['41_Brk_Var'] = false; try{ logDebug('41: TRIPPED'); }catch(_){} }
-        if(state['52G_Brk_Var']){ state['52G_Brk_Var'] = false; try{ logDebug('52G: TRIPPED'); }catch(_){} }
+        if(state['41_Brk_Var']){ state['41_Brk_Var'] = false; try{ logDebug('Field Breaker: Trip'); }catch(_){} }
+        if(state['52G_Brk_Var']){ state['52G_Brk_Var'] = false; try{ logDebug('Generator Breaker: Trip'); }catch(_){} }
         gateRamp.active = false;
         stopRamp.active = true;
         stopRamp.from = (typeof Gate_Setpoint === 'number') ? Gate_Setpoint : 0;
@@ -1445,7 +1445,7 @@ requestAnimationFrame(tick);
         const code = name.split('_')[1];
         let msg;
         switch(code){
-          case '32': msg = on ? 'Reverse Power Active' : 'Reverse Power Inactive'; break;
+          case '32': msg = on ? 'Reverse Power Active' : 'Reverse Power Detected'; break;
           case '55': msg = on ? 'Power Factor Abnormal' : 'Power Factor Normal'; break;
           case '27': msg = on ? 'Undervoltage Alarm' : 'Voltage Normal'; break;
           case '59': msg = on ? 'Overvoltage Alarm' : 'Voltage Normal'; break;
@@ -1844,6 +1844,7 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
 
