@@ -628,10 +628,15 @@ function handleAction(tag){
       }
     }
 
-    // On disabling AVR, freeze SP to current kV
+    // On disabling AVR, freeze SP so manual droop maintains present kV
     if (tag === 'AVR_OFF' && wasAVR && state) {
       const kv = Math.max(0, +state.Gen_kV_Var || 0);
-      state.Gen_kV_SP = kv; // manual mode allows up to current value (upper bound handled elsewhere)
+      const Vbus = state.Bus_Voltage_kV || 13.8;
+      const Ipu = clamp((state.AMPS || 0) / (RATED.AMPS || 1), 0, 2);
+      const Qpu = clamp((state.MVAR || 0) / (RATED.MVAR_LAG_MAX || 1), -1, 1);
+      const extra = 1 + MANUAL_Q_GAIN * Math.max(0, Qpu);
+      const V_droop = Vbus * MANUAL_DROOP_PU * Ipu * extra;
+      state.Gen_kV_SP = kv + V_droop; // offsets immediate droop so voltage holds steady
     }
 
     // Delegate to original action handler
