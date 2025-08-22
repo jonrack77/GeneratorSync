@@ -10,19 +10,6 @@
   body { margin: 0; background: #cfd4da; }
   #panel-bg { position: fixed; inset: 0; z-index: -1; }
 #sim-wrap { position: relative; display: inline-block; }
-#contactModal {
-  position: fixed;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0,0,0,0.6);
-}
-#contactModal form {
-  background: #fff;
-  padding: 20px;
-  border-radius: 4px;
-}
 </style>
 <body>
 <svg id="panel-bg" width="100%" height="100%" preserveAspectRatio="none" role="presentation" aria-hidden="true">
@@ -9152,8 +9139,7 @@
              id="tspan51213-6-9-88"
              style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:4.58611px;font-family:Arial;-inkscape-font-specification:'Arial, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-variant-east-asian:normal;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:3.5306"
              x="13.478336"
-            y="55.749859">Voltage Regulator</tspan></text></g>
-<button id="contactBtn">Contact</button><g
+             y="55.749859">Voltage Regulator</tspan></text></g><g
          id="Knob_AVR"
          transform="rotate(-45,31.749657,31.706519)"
          inkscape:label="Knob_AVR"><path
@@ -11110,16 +11096,8 @@
            rx="5.0661173"
            ry="5.1065636" /></g></g></g></svg></div>
 
-<div id="contactModal" style="display:none;">
-  <form name="contact" netlify>
-    <input type="hidden" name="form-name" value="contact">
-    <label>Email: <input type="email" name="email" required></label>
-    <label>Message: <textarea name="message" required></textarea></label>
-    <button type="submit">Send</button>
-    <button type="button" id="closeContact">Close</button>
-  </form>
-</div>
 
+  
 </body>
 </html>
 
