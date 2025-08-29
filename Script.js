@@ -266,7 +266,7 @@ const state = {
 
   // Voltage model
   Gen_kV_Var:0,           // actual terminal kV “inside the 52G”
-  Gen_kV_SP:13.5,         // operator/AVR setpoint (kV)
+  Gen_kV_SP:13.8,         // operator/AVR setpoint (kV)
 
   // Power model
   MW:0,
@@ -475,7 +475,7 @@ function handleAction(tag){
         if (state.Speed_Perm_Var){
           state['41_Brk_Var'] = true;
           try{ logDebug('Field Breaker: CLOSED'); }catch(_){}
-          if (state['52G_Brk_Var'] && state.AVR_On){
+          if (state.AVR_On){
             state.Gen_kV_SP  = 13.8;
             state.Gen_kV_Var = state.Gen_kV_SP;
           } else {
@@ -628,27 +628,19 @@ function handleAction(tag){
     // Pre-transition context
     const wasAVR = !!(state && state.AVR_On);
 
-    // On enabling AVR, restore previously stored SP or freeze to present kV
+    // On enabling AVR, store current manual setpoint and lock to 13.8 kV
     if (tag === 'AVR_ON' && !wasAVR && state) {
-      if (typeof state.__avrStoredSP === 'number') {
-        state.Gen_kV_SP = clamp(state.__avrStoredSP, KV_MIN, KV_MAX);
-      } else {
-        const kv = +state.Gen_kV_Var || 0;
-        if (typeof clamp === 'function') {
-          state.Gen_kV_SP = clamp(kv, KV_MIN, KV_MAX);
-        } else {
-          state.Gen_kV_SP = Math.min(KV_MAX, Math.max(KV_MIN, kv));
-        }
-      }
+      state.__manualKVSP = state.Gen_kV_SP;
+      state.Gen_kV_SP = 13.8;
     }
 
-    // On disabling AVR, store SP and freeze setpoint at present kV
+    // On disabling AVR, restore previously stored manual setpoint
     if (tag === 'AVR_OFF' && wasAVR && state) {
-      state.__avrStoredSP = state.Gen_kV_SP;
-      const kv = Math.max(0, +state.Gen_kV_Var || 0);
-      state.Gen_kV_SP  = kv;  // freeze setpoint to present kV
-      state.Gen_kV_Var = kv;
+      if (typeof state.__manualKVSP === 'number') {
+        state.Gen_kV_SP = state.__manualKVSP;
+      }
       try {
+        const kv = +state.Gen_kV_Var || 0;
         const kvStr = kv.toFixed(2);
         logDebug(`AVR transition to MANUAL: V ${kvStr} kV`);
       } catch(_){}
@@ -745,14 +737,16 @@ function updateVoltageSet(){
   const NU = 0.01;                         // sensitivity
   const RATE = NU * (KV_MAX - KV_MIN);     // kV/s equivalent
 
+  // When AVR is in AUTO, lock the setpoint to 13.8 kV and ignore knob input
+  if (state.AVR_On){
+    state.Gen_kV_SP = 13.8;
+    return;
+  }
+
   if (a90 >= TH){
-    state.Gen_kV_SP = state.AVR_On
-      ? clamp(state.Gen_kV_SP + RATE*dt, KV_MIN, KV_MAX)
-      : Math.max(0, state.Gen_kV_SP + RATE*dt);   // no upper limit when AVR OFF
+    state.Gen_kV_SP = Math.max(0, state.Gen_kV_SP + RATE*dt);   // no upper limit when AVR OFF
   } else if (a90 <= -TH){
-    state.Gen_kV_SP = state.AVR_On
-      ? clamp(state.Gen_kV_SP - RATE*dt, KV_MIN, KV_MAX)
-      : Math.max(0, state.Gen_kV_SP - RATE*dt);   // allow down to 0 only
+    state.Gen_kV_SP = Math.max(0, state.Gen_kV_SP - RATE*dt);   // allow down to 0 only
   }
 }
 
