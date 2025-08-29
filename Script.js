@@ -240,6 +240,58 @@ function angleOf(id){
     AMPS:  1046.9           // at 13.8kV
   };
 
+  // =======================
+  // Hydro Simulator Tunables
+  // =======================
+  const CFG = {
+    // Gate movement (%/s)
+    GateRate_Normal_pctps: 2.0,   // Gate > 18%
+    GateRate_Sync_pctps:   1.0,   // Gate <= 18%
+    GateRate_Trip_pctps:   3.0,   // Trip driveback
+    GatePct_SyncLimit: 18,
+
+    // Sync points
+    F_SYNC_HZ: 60,
+    N_SYNC_RPM: 100,
+    GatePct_Sync: 15,
+
+    // Free-turbine endpoints
+    Runaway_RPM: 242,
+
+    // Deceleration (rpm/s)
+    DecelRate_Normal_rpmps: 3.35, // brakes OFF
+    Brake_On_RPM: 30,
+    Brake_ZoneSplit_RPM: 15,
+    DecelRate_Brake_Z1_rpmps: 1.00, // 30→15 rpm
+    DecelRate_Brake_Z2_rpmps: 0.43, // 15→0 rpm
+
+    // Field & breakers
+    FieldAutoCloseRPM: 50,
+    TripOpen52G_GatePct: 16,
+
+    // Voltage slews (kV/s)
+    KV_SLEW_MANUAL: 2.0,
+    KV_SLEW_AUTO:   1.2,
+
+    // Power model
+    NoLoadGatePct: 20,
+    RevPwrLimitMW: -5,
+
+    // Reactive gain shaping
+    Q_GAIN_MIN: 2.0,
+    Q_GAIN_MAX: 30.0,
+    Q_GAIN_SHAPE_N: 1.0,
+
+    // Loss Of Excitation
+    LOE_SETTLE_MS: 250,
+
+    // Sync-check tolerances
+    SYNC_V_TOL_PCT: 3,
+    SYNC_HZ_TOL: 0.15,
+    SYNC_ANGLE_TOL_DEG: 10
+  };
+
+
   /* ///////////// Section 5.B State object (state) + exposure ///////////// */
 const state = {
   Master_Started:false,
@@ -256,6 +308,11 @@ const state = {
   Gate_Pos_Var:0,         // %
   Gen_Freq_Var:0,         // Hz
   Gen_RPM_Var:0,          // calc
+
+  Brakes_On:false,
+  LiftPump_On:false,
+  UnitStopped:true,
+  _pending52GTripOpen:false,
 
   Speed_Perm_Var:false,
   SyncCheck_Perm_Var:false,
@@ -290,8 +347,8 @@ try{ window.SimState = state; }catch(_){}
   const STOP_RAMP_TRIP_MS   = 500;
 
  /* ///////////// Section 5.E Voltage slew params (KV_* constants) ///////////// */
-const KV_SLEW_MANUAL = 2;     // kV/s tracking rate to SP (manual)
-const KV_SLEW_AUTO   = 1.2;   // kV/s when AVR is acting
+const KV_SLEW_MANUAL = CFG.KV_SLEW_MANUAL;     // kV/s tracking rate to SP (manual)
+const KV_SLEW_AUTO   = CFG.KV_SLEW_AUTO;   // kV/s when AVR is acting
 const KV_MIN = 0.0, KV_MAX = 16.0;
 
 /* Frequency tuning (single-mode) */
@@ -307,8 +364,9 @@ const FREQ_DECEL_SLOW_HZ_S = FREQ_DECEL_HZ_S / .25; // half-rate below threshold
 const AVR_LDC_PU = 0.00;
 
 // Power mapping: physical gate needed for ~0 MW when paralleled
-const NO_LOAD_GATE_PCT = 20;    // set near your sync gate (e.g., 18–20)
-const REV_PWR_LIMIT_MW = -5;  // cap reverse power (negative)
+// Values sourced from CFG block at top
+const NO_LOAD_GATE_PCT = CFG.NoLoadGatePct;
+const REV_PWR_LIMIT_MW = CFG.RevPwrLimitMW;  // cap reverse power (negative)
 
 // Manual-close PF/MW targets (used when AVR is OFF, at 52G close)
 const CLOSE_REV_PWR_TARGET_MW = -0.01;
@@ -318,14 +376,48 @@ const CLOSE_PF_TARGET         = -0.95;
 const MANUAL_CLOSE_V_BIAS_KV  = 12.5;
 
 // Reactive gain shaping (keeps vars small near zero load)
-const Q_GAIN_MIN     = 2.0;     // MVAR per kV near zero-load
-const Q_GAIN_MAX     = 30.0;    // MVAR per kV at high load
-const Q_GAIN_SHAPE_N = 1.0;     // 1=linear
+const Q_GAIN_MIN     = CFG.Q_GAIN_MIN;     // MVAR per kV near zero-load
+const Q_GAIN_MAX     = CFG.Q_GAIN_MAX;    // MVAR per kV at high load
+const Q_GAIN_SHAPE_N = CFG.Q_GAIN_SHAPE_N;     // 1=linear
 
 // ---------- Loss Of Excitation (41 OPEN while 52G CLOSED) tunables ----------
 const LOE_REV_PWR_MW       = -0.4;  // small reverse MW on field loss
 const LOE_Q_IMPORT_MVAR    = 15.0;  // inductive vars imported on field loss (+ = lagging)
-const LOE_SETTLE_MS        = 250;   // time constant to settle MW/Q to targets
+const LOE_SETTLE_MS        = CFG.LOE_SETTLE_MS;   // time constant to settle MW/Q to targets
+
+
+// =======================
+// Helpers for RPM/HZ logic
+// =======================
+function rpmFromGate(g, cfg=CFG) {
+  if (g <= 0) return 0;
+  if (g < cfg.GatePct_Sync) {
+    return cfg.N_SYNC_RPM * (g / cfg.GatePct_Sync);
+  }
+  const span = 100 - cfg.GatePct_Sync;
+  return cfg.N_SYNC_RPM + (cfg.Runaway_RPM - cfg.N_SYNC_RPM) * ((g - cfg.GatePct_Sync) / span);
+}
+
+function hzFromRPM(rpm, cfg=CFG) {
+  return rpm * (cfg.F_SYNC_HZ / cfg.N_SYNC_RPM);
+}
+
+function updateBrakesLatched(brakesOn, rpm, cfg=CFG) {
+  if (rpm <= cfg.Brake_On_RPM) return true;
+  if (rpm <= 0) return true;
+  return false;
+}
+
+function stepRPM(currRPM, targetRPM, brakesOn, dt, cfg=CFG) {
+  if (targetRPM >= currRPM) return targetRPM;
+  let dec = cfg.DecelRate_Normal_rpmps;
+  if (brakesOn) {
+    dec = (currRPM > cfg.Brake_ZoneSplit_RPM)
+      ? cfg.DecelRate_Brake_Z1_rpmps
+      : cfg.DecelRate_Brake_Z2_rpmps;
+  }
+  return Math.max(targetRPM, currRPM - dec * dt);
+}
 
 
 
@@ -472,7 +564,7 @@ function handleAction(tag){
     /* ---- 41 Field breaker ---- */
     case '41_CLOSE':
       if(!state['41_Brk_Var']){
-        if (state.Speed_Perm_Var){
+        if (state.Speed_Perm_Var || state.Gen_RPM_Var >= CFG.FieldAutoCloseRPM){
           state['41_Brk_Var'] = true;
           try{ logDebug('Field Breaker: CLOSED'); }catch(_){}
           if (state.AVR_On){
@@ -549,19 +641,16 @@ function handleAction(tag){
         state['86G_Trip_Var'] = true;
         setFlag86(true);
         if(state['41_Brk_Var']){ state['41_Brk_Var'] = false; try{ logDebug('Field Breaker: Trip'); }catch(_){} }
-        if(state['52G_Brk_Var']){ state['52G_Brk_Var'] = false; try{ logDebug('Generator Breaker: Trip'); }catch(_){} }
+        if(state['52G_Brk_Var']){ state._pending52GTripOpen = true; }
         gateRamp.active = false;
-        stopRamp.active = true;
-        stopRamp.from = (typeof Gate_Setpoint === 'number') ? Gate_Setpoint : 0;
-        stopRamp.to   = 0;
-        stopRamp.dur  = STOP_RAMP_TRIP_MS;
-        stopRamp.t0   = performance.now();
+        stopRamp.active = false;
+        Gate_Setpoint = 0;
         try{ logDebug('86G: TRIP'); }catch(_){}
       }
       break;
 
     case '86G_RESET':
-      if(state['86G_Trip_Var']){
+      if(state['86G_Trip_Var'] && state.UnitStopped){
         state['86G_Trip_Var'] = false;
         setFlag86(false);
         try{ logDebug('86G: RESET'); }catch(_){}
@@ -753,9 +842,9 @@ function updateVoltageSet(){
 
   /* ///////////// Section 5.L updateSyncCheck (sync permissive) ///////////// */
 function updateSyncCheck(){
-  const V_TOL_FRAC = 0.03;  // ±3%
-  const F_TOL_HZ   = 0.15;  // ±0.15 Hz
-  const PHASE_DEG  = 10.0;  // ±10°
+  const V_TOL_FRAC = CFG.SYNC_V_TOL_PCT / 100;
+  const F_TOL_HZ   = CFG.SYNC_HZ_TOL;
+  const PHASE_DEG  = CFG.SYNC_ANGLE_TOL_DEG;
 
   const snap = PhaseTracker.snap;
   const vb = snap ? snap.vb : (+state.Bus_Voltage_kV || 13.8);
@@ -780,211 +869,129 @@ function updatePhysics(){
   if (!state.Master_Started) {
     gateRamp.active = false;
     stopRamp.active = false;
-
     state.Gen_Freq_Var = 0;
     state.Gen_RPM_Var  = 0;
-
+    state.Brakes_On    = true;
+    state.UnitStopped  = true;
+    state.LiftPump_On  = false;
     const targetKV = state['41_Brk_Var'] ? state.Gen_kV_SP : 0;
     slewGenKV(targetKV, KV_SLEW_MANUAL);
-
-    if (state.Speed_Perm_Var !== false) {
-      state.Speed_Perm_Var = false;
-    }
-
-    // reset run latch
-    updatePhysics._wasRunning = false;
-
+    state.Speed_Perm_Var = false;
     state.MW = 0; state.MVAR = 0; state.AMPS = 0; state.PF = 0;
     return;
   }
 
-  // Gate setpoint ramps
+  state.UnitStopped = false;
+
+  // Gate setpoint ramps (unchanged)
   if (gateRamp.active){
     const p = clamp((performance.now() - gateRamp.t0) / gateRamp.dur, 0, 1);
     Gate_Setpoint = gateRamp.from + (gateRamp.to - gateRamp.from) * p;
-    if (p >= 1){
-      gateRamp.active = false;
-    }
+    if (p >= 1) gateRamp.active = false;
   } else if (stopRamp.active){
     const p = clamp((performance.now() - stopRamp.t0) / stopRamp.dur, 0, 1);
     Gate_Setpoint = stopRamp.from + (stopRamp.to - stopRamp.from) * p;
-    if (p >= 1){
-      stopRamp.active = false;
-      Gate_Setpoint = 0;
-      // do NOT snap gates/freq or clear Master_Started here
-    }
+    if (p >= 1){ stopRamp.active = false; Gate_Setpoint = 0; }
   }
-
-  // Governor: actual gate follows setpoint. Rates differ for normal vs. trip shutdowns.
-  const GATE_SLEW = {
-    NORMAL: 6 / 1000, // %/ms (≈20 %/s) — normal shutdown
-    TRIP:   8 / 1000  // %/ms (≈80 %/s) — trip
-  };
-
-  const isTripSlew = !!(
-    state['86G_Trip_Var'] ||
-    state.Trip_32 || state.Trip_40 || state.Trip_27_59 || state.Trip_81
-  );
-  const rate = isTripSlew ? GATE_SLEW.TRIP : GATE_SLEW.NORMAL;
 
   const now = performance.now();
   if (typeof updatePhysics._tPrev !== 'number') updatePhysics._tPrev = now;
-  const dt = Math.min(100, now - updatePhysics._tPrev);
+  const dt_ms = Math.min(100, now - updatePhysics._tPrev);
   updatePhysics._tPrev = now;
+  const dt = dt_ms / 1000;
 
-  const maxStep = rate * dt;
+  // Gate movement toward setpoint
+  const isTrip = !!(state['86G_Trip_Var'] || state.Trip_32 || state.Trip_40 || state.Trip_27_59 || state.Trip_81);
+  let rate = CFG.GateRate_Normal_pctps;
+  if (isTrip) rate = CFG.GateRate_Trip_pctps;
+  else if (Gate_Setpoint <= CFG.GatePct_SyncLimit && state.Gate_Pos_Var <= CFG.GatePct_SyncLimit) rate = CFG.GateRate_Sync_pctps;
+
   const err = Gate_Setpoint - state.Gate_Pos_Var;
-  if (Math.abs(err) > maxStep){
-    state.Gate_Pos_Var += Math.sign(err) * maxStep;
-  } else {
-    state.Gate_Pos_Var = Gate_Setpoint;
-  }
+  const step = rate * dt;
+  if (Math.abs(err) > step) state.Gate_Pos_Var += Math.sign(err) * step;
+  else state.Gate_Pos_Var = Gate_Setpoint;
 
-  // During a Master Stop, automatically open breakers once gates fall low
-  if (state.MasterStopMask && state.Gate_Pos_Var <= FREQ_GATE_THRESH_PCT) {
+  // Breakers on normal stop or trip
+  if ((stopRamp.active || state.MasterStopMask) && state.Gate_Pos_Var <= CFG.TripOpen52G_GatePct){
     if (state['52G_Brk_Var']) handleAction('52G_OPEN');
     if (state['41_Brk_Var']) handleAction('41_OPEN');
   }
-
-  /// Frequency (single-owner slew): on-grid=60; off-grid rises follow gate; falls decay at fixed rate
-  {
-    const onGrid = !!state['52G_Brk_Var'];
-     let raw;
-    if (onGrid) {
-      raw = 60;
-    } else {
-      const gate = state.Gate_Pos_Var;
-      raw = (gate <= FREQ_GATE_THRESH_PCT)
-        ? FREQ_GATE_LOW_HZ_PER_PCT * gate
-        : (FREQ_GATE_HIGH_HZ_PER_PCT * gate + FREQ_GATE_HIGH_INTERCEPT_HZ);
-    }
-    const curr   = +state.Gen_Freq_Var || 0;
-    const dt_s   = Math.max(0, dt) / 1000;
-
-    const decelRate = (curr > FREQ_DECEL_SLOW_THRESH_HZ)
-      ? FREQ_DECEL_HZ_S
-      : FREQ_DECEL_SLOW_HZ_S;
-
-    const next   = (raw >= curr) ? raw : Math.max(raw, curr - decelRate * dt_s);
-
-    state.Gen_Freq_Var = clamp(next, 0, 94);
-    state.Gen_RPM_Var  = state.Gen_Freq_Var * 1.667;
-
-    // Log major stopping events based on frequency thresholds
-    if (!state['52G_Brk_Var'] && state.Master_Started && curr > state.Gen_Freq_Var) {
-      if (!updatePhysics._liftPumpLogged && curr >= 40 && state.Gen_Freq_Var < 40) {
-        try { logDebug('Lift Pump On'); } catch (_) {}
-        updatePhysics._liftPumpLogged = true;
-      }
-      if (!updatePhysics._brakesLogged && curr >= 20 && state.Gen_Freq_Var < 20) {
-        try { logDebug('Brakes Applied'); } catch (_) {}
-        updatePhysics._brakesLogged = true;
-      }
-    } else {
-      updatePhysics._liftPumpLogged = false;
-      updatePhysics._brakesLogged = false;
-    }
-  }
-  // Mark as having run (prevents immediate "Unit Stopped" right after Master Start)
-  {
-    if (state.Master_Started && (state.Gate_Pos_Var > 0.5 || state.Gen_Freq_Var > 0.2)) {
-      updatePhysics._wasRunning = true;
-    }
+  if (state._pending52GTripOpen && state.Gate_Pos_Var <= CFG.TripOpen52G_GatePct){
+    if (state['52G_Brk_Var']) handleAction('52G_OPEN');
+    state._pending52GTripOpen = false;
   }
 
-  // Latch "Unit Stopped" only when we are actually stopping AND gates ~0 AND frequency ~0 (off-grid)
-  {
-    const CLOSE_LATCH_EPS = 0.5; // %
-    const FREQ_LATCH_EPS  = 0.2; // Hz
-    const stoppingIntent  = stopRamp.active || state['86G_Trip_Var'] || !!updatePhysics._wasRunning;
+  // RPM & Frequency
+  state.Brakes_On = updateBrakesLatched(state.Brakes_On, state.Gen_RPM_Var, CFG);
+  const targetRPM = rpmFromGate(state.Gate_Pos_Var, CFG);
+  state.Gen_RPM_Var = stepRPM(state.Gen_RPM_Var, targetRPM, state.Brakes_On, dt, CFG);
+  state.Gen_Freq_Var = hzFromRPM(state.Gen_RPM_Var, CFG);
 
-    if (!state['52G_Brk_Var'] &&
-        state.Master_Started &&
-        stoppingIntent &&
-        state.Gate_Pos_Var <= CLOSE_LATCH_EPS &&
-        state.Gen_Freq_Var <= FREQ_LATCH_EPS) {
-      state.Gate_Pos_Var   = 0;
-      state.Master_Started = false;
-      stopRamp.active      = false;
-      updatePhysics._wasRunning = false;
-      // Mark generator offline so protections don't evaluate after a normal stop
-      state.GeneratorOnline = false;
-      logDebug('Unit Stopped');
-    }
+  // Auto-close field breaker at speed
+  if (!state['41_Brk_Var'] && state.Gen_RPM_Var >= CFG.FieldAutoCloseRPM && !state['86G_Trip_Var']){
+    handleAction('41_CLOSE');
   }
 
-  // Speed Permissive toggle
-  const spNext = !!(state.Master_Started && (state.Gate_Pos_Var > 0) && (state.Gen_RPM_Var > 50));
-  if (state.Speed_Perm_Var !== spNext) {
-    state.Speed_Perm_Var = spNext;
-  }
+  // Speed permissive
+  state.Speed_Perm_Var = (state.Gen_RPM_Var > 60);
 
-  // AVR & kV tracking
+  // kV tracking
   const Vbus = state.Bus_Voltage_kV || 13.8;
-  if (state['52G_Brk_Var']) {
-    if (state.AVR_On){
-      let kvTargetSP = state.Gen_kV_SP;
-      slewGenKV(kvTargetSP, KV_SLEW_AUTO);
-    } else {
-      // MANUAL: track setpoint without droop
-      slewGenKV(state.Gen_kV_SP, KV_SLEW_MANUAL);
-    }
+  if (state['52G_Brk_Var']){
+    if (state.AVR_On) slewGenKV(state.Gen_kV_SP, KV_SLEW_AUTO);
+    else slewGenKV(state.Gen_kV_SP, KV_SLEW_MANUAL);
   } else {
-    // Not paralleled: track SP if field on, else decay to 0
     const tgt = state['41_Brk_Var'] ? state.Gen_kV_SP : 0;
     slewGenKV(tgt, KV_SLEW_MANUAL);
   }
 
-  // Power model (with no-load gate offset; does NOT move the gates)
+  // Power model
   let MW = 0;
   if (state['52G_Brk_Var']){
     const noLoad = (typeof state.NoLoadGateCal === 'number') ? state.NoLoadGateCal : NO_LOAD_GATE_PCT;
-    const effGate = state.Gate_Pos_Var - noLoad;                      // can be negative
-    const slope   = 100 / Math.max(1e-3, (100 - NO_LOAD_GATE_PCT));   // keep 100% gate => rated MW
-    let MW_pu     = (effGate * slope) / 100;                          // per-unit MW
-    const min_pu  = (REV_PWR_LIMIT_MW) / (RATED.MW || 1);
+    const effGate = state.Gate_Pos_Var - noLoad;
+    const slope   = 100 / Math.max(1e-3, (100 - NO_LOAD_GATE_PCT));
+    let MW_pu     = (effGate * slope) / 100;
+    const min_pu  = REV_PWR_LIMIT_MW / (RATED.MW || 1);
     MW_pu = clamp(MW_pu, min_pu, 1);
     MW = MW_pu * RATED.MW;
   }
 
-  // Reactive power: scale gain with effective gate so MVAR is small at close
   let Q = 0;
   if (state['52G_Brk_Var']){
-    const dv = (state.Gen_kV_Var - Vbus); // kV
+    const dv = (state.Gen_kV_Var - Vbus);
     const noLoad = (typeof state.NoLoadGateCal === 'number') ? state.NoLoadGateCal : NO_LOAD_GATE_PCT;
-    const effGatePU = clamp(
-      (state.Gate_Pos_Var - noLoad) / Math.max(1e-3, (100 - NO_LOAD_GATE_PCT)),
-      0, 1
-    );
+    const effGatePU = clamp((state.Gate_Pos_Var - noLoad) / Math.max(1e-3, (100 - NO_LOAD_GATE_PCT)), 0, 1);
     const qGain = Q_GAIN_MIN + (Q_GAIN_MAX - Q_GAIN_MIN) * Math.pow(effGatePU, Q_GAIN_SHAPE_N);
     Q = clamp(dv * qGain, -RATED.MVAR_LEAD_MAX, RATED.MVAR_LAG_MAX);
   }
 
-  // -------- Loss Of Excitation override (52G CLOSED & 41 OPEN) ----------
+  // Loss Of Excitation blend
   if (state['52G_Brk_Var'] && !state['41_Brk_Var']){
     const t = performance.now();
     if (typeof updatePhysics._loeT0 !== 'number') updatePhysics._loeT0 = t;
     const α = Math.min(1, (t - updatePhysics._loeT0) / LOE_SETTLE_MS);
-
-    // Blend current values toward LOE targets
-    MW = MW + (LOE_REV_PWR_MW - MW) * α;          // small reverse
-    Q  = Q  + (LOE_Q_IMPORT_MVAR - Q) * α;        // inductive import (positive)
+    MW = MW + (LOE_REV_PWR_MW - MW) * α;
+    Q  = Q  + (LOE_Q_IMPORT_MVAR - Q) * α;
   } else {
     delete updatePhysics._loeT0;
   }
-  // ----------------------------------------------------------------------
 
-  // Apparent + amps + PF
   const S = Math.sqrt(MW*MW + Q*Q);
-  const I_kA = (S) / (Math.sqrt(3) * (Vbus));
+  const I_kA = S / (Math.sqrt(3) * Vbus);
   const I_A  = I_kA * 1000;
   const PFmag = S > 1e-6 ? (Math.abs(MW) / S) : 0;
   const PFsigned = (Q < 0 ? -PFmag : PFmag);
 
-  state.MW = MW;
-  state.MVAR = Q;
-  state.AMPS = I_A;
-  state.PF = PFsigned;
+  state.MW = MW; state.MVAR = Q; state.AMPS = I_A; state.PF = PFsigned;
+
+  // Unit stopped detection
+  if (state.Brakes_On && state.Gen_RPM_Var <= 0){
+    state.UnitStopped = true;
+    state.Gen_RPM_Var = 0;
+    state.Gen_Freq_Var = 0;
+    if (!state['52G_Brk_Var']) state.Master_Started = false;
+  }
 }
 
 
@@ -1147,12 +1154,13 @@ function updateGlows(){
   const ang  = (k86 && typeof k86.currentAngle === 'number') ? k86.currentAngle : 0;
   const is86NormalByKnob = (ang > -1);
 
-  // Permissives
-  setGlow('Glow_Perm_52G',        is52Open);
-  setGlow('Glow_Perm_86G',        is86NormalByKnob);
-  setGlow('Glow_Perm_Speed',      !!state.Speed_Perm_Var);
-  setGlow('Glow_Perm_Excitation', is41Closed);
-  setGlowWhite('Glow_Perm_SyncCheck', !!state.SyncCheck_Perm_Var); // white
+  // Permissives (hidden when 52G closed)
+  const showPerm = is52Open;
+  setGlow('Glow_Perm_52G',        showPerm && is52Open);
+  setGlow('Glow_Perm_86G',        showPerm && is86NormalByKnob);
+  setGlow('Glow_Perm_Speed',      showPerm && !!state.Speed_Perm_Var);
+  setGlow('Glow_Perm_Excitation', showPerm && is41Closed);
+  setGlowWhite('Glow_Perm_SyncCheck', showPerm && !!state.SyncCheck_Perm_Var); // white
 
   // 52G status
   setGlow('Glow_Green_52G', is52Open);
