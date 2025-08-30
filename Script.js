@@ -306,6 +306,11 @@ const FREQ_ACCEL_HZ_S = 3;    // max rise rate (Hz/s)
 const FREQ_DECEL_HZ_S = 3;   // fixed fall rate (Hz/s) when raw < current
 const FREQ_DECEL_SLOW_THRESH_HZ = 20; // Hz threshold to slow decel
 const FREQ_DECEL_SLOW_HZ_S = FREQ_DECEL_HZ_S / .25; // half-rate below threshold
+// Zone near synchronous speed with reduced accel/decel
+const FREQ_SYNC_LOW_HZ  = 59;  // lower bound for slower band
+const FREQ_SYNC_HIGH_HZ = 61;  // upper bound for slower band
+const FREQ_ACCEL_SYNC_HZ_S = 1; // accel rate within band
+const FREQ_DECEL_SYNC_HZ_S = 1; // decel rate within band
 
 // AVR line-drop compensation (disabled if 0)
 const AVR_LDC_PU = 0.00;
@@ -882,13 +887,12 @@ function updatePhysics(){
     const curr   = +state.Gen_Freq_Var || 0;
     const dt_s   = Math.max(0, dt) / 1000;
 
-    const decelRate = (curr > FREQ_DECEL_SLOW_THRESH_HZ)
-      ? FREQ_DECEL_HZ_S
-      : FREQ_DECEL_SLOW_HZ_S;
+    const inSyncBand = curr >= FREQ_SYNC_LOW_HZ && curr <= FREQ_SYNC_HIGH_HZ;
+    const accelRate = inSyncBand ? FREQ_ACCEL_SYNC_HZ_S : FREQ_ACCEL_HZ_S;
+    const decelRate = inSyncBand ? FREQ_DECEL_SYNC_HZ_S
+      : (curr > FREQ_DECEL_SLOW_THRESH_HZ ? FREQ_DECEL_HZ_S : FREQ_DECEL_SLOW_HZ_S);
 
-    const accelRate = FREQ_ACCEL_HZ_S;
     const delta = raw - curr;
-    const maxStep = (delta > 0 ? accelRate : decelRate) * dt_s;
     const next = curr + clamp(delta, -decelRate * dt_s, accelRate * dt_s);
 
     state.Gen_Freq_Var = clamp(next, 0, 94);
