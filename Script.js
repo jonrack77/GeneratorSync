@@ -1570,7 +1570,10 @@ requestAnimationFrame(tick);
     logFlag('Alarm_32', PROT.a32 >= 0.2);
 
     // 55 — LOE / Field Issues (proxy alarm)
-    const a55 = (!S['41_Brk_Var'] && S['52G_Brk_Var']);
+    // Alarm when power factor magnitude drops below 0.9 (leading or lagging)
+    const Sva = Math.hypot(MW, Q);
+    const pf  = Sva > 0 ? MW / Sva : 1;
+    const a55 = (Math.abs(pf) < 0.9);
     PROT.a55 = a55 ? PROT.a55 + dt : 0;
     logFlag('Alarm_55', PROT.a55 >= 0.2);
 
