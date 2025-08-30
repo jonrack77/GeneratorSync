@@ -446,7 +446,7 @@ function handleAction(tag){
           stopRamp.active = false;
           gateRamp.active = true;
           gateRamp.from = (typeof Gate_Setpoint === 'number') ? Gate_Setpoint : 0;
-          gateRamp.to   = 19.75;
+          gateRamp.to   = 19.9;
           gateRamp.dur  = 3000;
           gateRamp.t0   = performance.now();
         }
@@ -1889,6 +1889,7 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
 
