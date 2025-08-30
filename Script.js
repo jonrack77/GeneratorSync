@@ -512,7 +512,10 @@ function handleAction(tag){
         kvRamp.to   = 0;
         kvRamp.dur  = KV_RAMP_MS;
         kvRamp.t0   = performance.now();
-        if(state['52G_Brk_Var']){ logFlag('Trip_40', true); }
+        if(state['52G_Brk_Var']){
+          logFlag('Trip_40', true);
+          try{ handleAction('86G_TRIP'); }catch(_){ }
+        }
       }
       break;
 
