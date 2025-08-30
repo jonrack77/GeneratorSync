@@ -89,8 +89,8 @@ function logDebug(message){
         }
       } else if (lower.includes('overspeed')) {
         color = 'red';
-      } else if (lower.includes('alarm') || lower.includes('active') || lower.includes('inactive') || lower.includes('') || lower.includes('normal')){
-        if (lower.includes('inactive') || (lower.includes('normal') && !lower.includes('')) || lower.includes('false') || lower.includes('cleared')){
+      } else if (lower.includes('alarm') || lower.includes('active') || lower.includes('inactive') || lower.includes('abnormal') || lower.includes('normal')){
+        if (lower.includes('inactive') || (lower.includes('normal') && !lower.includes('abnormal')) || lower.includes('false') || lower.includes('cleared')){
           color = '#006400';
         } else {
           color = '#b8860b';
@@ -1498,7 +1498,7 @@ requestAnimationFrame(tick);
         const code = name.split('_')[1];
         let msg;
         switch(code){
-          case '32': msg = on ? 'Reverse Power Active' : 'Reverse Power Detected'; break;
+          case '32': msg = on ? 'Reverse Power Alarm' : 'Reverse Power Normal'; break;
           case '55': msg = on ? 'Power Factor Alarm' : 'Power Factor Normal'; break;
           case '27': msg = on ? 'Undervoltage Alarm' : 'Voltage Normal'; break;
           case '59': msg = on ? 'Overvoltage Alarm' : 'Voltage Normal'; break;
@@ -1896,4 +1896,3 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
-
