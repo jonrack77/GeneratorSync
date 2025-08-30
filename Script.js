@@ -147,9 +147,9 @@ switches.forEach(cfg => {
   const cx = bb.x + bb.width/2;
   const cy = bb.y + bb.height/2;
 
-  // AVR knob starts at +45° (AUTO); Sync knob at -45°; others at 0°
+  // AVR knob starts at -45° (OFF); Sync knob at -45°; others at 0°
   const initAngle =
-    (cfg.knobId === 'Knob_AVR') ? 45 :
+    (cfg.knobId === 'Knob_AVR') ? -45 :
     (cfg.knobId === 'Knob_Sync') ? -45 : 0;
 
   knobStates[cfg.knobId] = {
@@ -243,7 +243,7 @@ function angleOf(id){
   /* ///////////// Section 5.B State object (state) + exposure ///////////// */
 const state = {
   Master_Started:false,
-  AVR_On:true,
+  AVR_On:false,
   Sync_On:false,
 
   // NEW: Latches TRUE when 52G closes; does NOT auto-unlatch on open
