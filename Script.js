@@ -1040,8 +1040,7 @@ function updatePhysics(){
   /* ///////////// Section 5.O Syncroscope & Lamps ///////////// */
 /* ///////////// Section 5.O.0 PhaseTracker (shared Δθ + snapshot) ///////////// */
 const PhaseTracker = {
-  busPhase: 0,
-  genPhase: 0,
+  delta: 0,
   tPrev: null,
   snap: null, // { vb, vg, fb, fg, dphiDeg, ts }
 
@@ -1053,14 +1052,19 @@ const PhaseTracker = {
     if (dt < 0) dt = 0;
     this.tPrev = t;
 
-    this.busPhase = (this.busPhase + 2 * Math.PI * (fb || 0) * dt) % (2 * Math.PI);
-    this.genPhase = (this.genPhase + 2 * Math.PI * (fg || 0) * dt) % (2 * Math.PI);
+    const df = (fg || 0) - (fb || 0);
+    const maxStep = Math.min(1/120, 0.5 / Math.max(1e-6, Math.abs(df))) * 0.999;
+    while (dt > 0) {
+      const step = Math.min(dt, maxStep);
+      this.delta += 2 * Math.PI * df * step;
+      dt -= step;
+    }
+    this.delta = normAngleRad(this.delta);
     return this.deltaDeg();
   },
 
   deltaDeg() {
-    const dphi = normAngleRad(this.genPhase - this.busPhase); // (-π,π]
-    return rad2deg(dphi); // (-180,180]
+    return rad2deg(this.delta); // (-180,180]
   },
 
   snapshot(vb, vg, fb, fg) {
