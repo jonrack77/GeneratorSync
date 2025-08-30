@@ -18,7 +18,7 @@
     5.A Rated constants (RATED)
     5.B State object (state) + exposure
     5.C Gate setpoint variable (Gate_Setpoint)
-    5.D Master start/stop ramps (gateRamp/stopRamp)
+    5.D Master start/stop ramps (gateRamp/stopRamp) & kV ramp (kvRamp)
     5.E Voltage slew params (KV_* constants)
     5.F Angle watch thresholds & maps (THRESH/WATCH/prevAngles)
     5.G setFlag86
@@ -288,6 +288,9 @@ try{ window.SimState = state; }catch(_){}
   // Normal: Master STOP; Trip: protective trip or 86G lockout
   const STOP_RAMP_NORMAL_MS = 2000;
   const STOP_RAMP_TRIP_MS   = 500;
+  const KV_RAMP_MS          = 3000;
+
+  const kvRamp  = { active:false, from:0, to:0,     dur:KV_RAMP_MS, t0:0 }; // kV ramp on field breaker
 
  /* ///////////// Section 5.E Voltage slew params (KV_* constants) ///////////// */
 const KV_SLEW_MANUAL = 2;     // kV/s tracking rate to SP (manual)
@@ -480,11 +483,14 @@ function handleAction(tag){
           try{ logDebug('Field Breaker: CLOSED'); }catch(_){}
           if (state['52G_Brk_Var'] && state.AVR_On){
             state.Gen_kV_SP  = 13.8;
-            state.Gen_kV_Var = state.Gen_kV_SP;
           } else {
             state.Gen_kV_SP  = 13.0;
-            state.Gen_kV_Var = state.Gen_kV_SP;
           }
+          kvRamp.active = true;
+          kvRamp.from = state.Gen_kV_Var;
+          kvRamp.to   = state.Gen_kV_SP;
+          kvRamp.dur  = KV_RAMP_MS;
+          kvRamp.t0   = performance.now();
         } else {
           try{ logDebug('41: BLOCKED'); }catch(_){}
         }
@@ -495,6 +501,11 @@ function handleAction(tag){
       if(state['41_Brk_Var']){
         state['41_Brk_Var'] = false;
         try{ logDebug('Field Breaker: OPEN'); }catch(_){}
+        kvRamp.active = true;
+        kvRamp.from = state.Gen_kV_Var;
+        kvRamp.to   = 0;
+        kvRamp.dur  = KV_RAMP_MS;
+        kvRamp.t0   = performance.now();
       }
       break;
 
@@ -1007,6 +1018,12 @@ function updatePhysics(){
   /* ///////////// Section 5.N slewGenKV (kV tracker) ///////////// */
   function slewGenKV(target, rate_kV_per_s){
     const now = performance.now();
+    if (kvRamp.active){
+      const p = clamp((now - kvRamp.t0) / kvRamp.dur, 0, 1);
+      state.Gen_kV_Var = kvRamp.from + (kvRamp.to - kvRamp.from) * p;
+      if (p >= 1) kvRamp.active = false;
+      return;
+    }
     if (typeof slewGenKV._tPrev !== 'number') slewGenKV._tPrev = now;
     const dt = Math.min(100, now - slewGenKV._tPrev)/1000;
     slewGenKV._tPrev = now;
