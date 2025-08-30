@@ -307,7 +307,7 @@ const FREQ_DECEL_HZ_S = 3;   // fixed fall rate (Hz/s) when raw < current
 const FREQ_DECEL_SLOW_THRESH_HZ = 20; // Hz threshold to slow decel
 const FREQ_DECEL_SLOW_HZ_S = FREQ_DECEL_HZ_S / .25; // half-rate below threshold
 // Zone near synchronous speed with reduced accel/decel
-const FREQ_SYNC_LOW_HZ  = 59;  // lower bound for slower band
+const FREQ_SYNC_LOW_HZ  = 58.5;  // lower bound for slower band
 const FREQ_SYNC_HIGH_HZ = 61;  // upper bound for slower band
 const FREQ_ACCEL_SYNC_HZ_S = .1; // accel rate within band
 const FREQ_DECEL_SYNC_HZ_S = .1; // decel rate within band
@@ -1904,6 +1904,7 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
 
