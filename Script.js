@@ -317,6 +317,9 @@ const CLOSE_PF_TARGET         = -0.95;
 // Small manual kV bias at close (optional)
 const MANUAL_CLOSE_V_BIAS_KV  = 12.5;
 
+// kV droop in manual mode at full load (approx)
+const MANUAL_KV_DROOP         = 0.4;
+
 // Reactive gain shaping (keeps vars small near zero load)
 const Q_GAIN_MIN     = 2.0;     // MVAR per kV near zero-load
 const Q_GAIN_MAX     = 30.0;    // MVAR per kV at high load
@@ -932,8 +935,14 @@ function updatePhysics(){
       let kvTargetSP = state.Gen_kV_SP;
       slewGenKV(kvTargetSP, KV_SLEW_AUTO);
     } else {
-      // MANUAL: track setpoint without droop
-      slewGenKV(state.Gen_kV_SP, KV_SLEW_MANUAL);
+      // MANUAL: allow small voltage droop with load
+      const noLoad = (typeof state.NoLoadGateCal === 'number') ? state.NoLoadGateCal : NO_LOAD_GATE_PCT;
+      const effGatePU = clamp(
+        (state.Gate_Pos_Var - noLoad) / Math.max(1e-3, (100 - NO_LOAD_GATE_PCT)),
+        0, 1
+      );
+      const kvTarget = state.Gen_kV_SP - MANUAL_KV_DROOP * effGatePU;
+      slewGenKV(kvTarget, KV_SLEW_MANUAL);
     }
   } else {
     // Not paralleled: track SP if field on, else decay to 0
