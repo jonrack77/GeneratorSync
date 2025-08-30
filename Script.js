@@ -484,7 +484,7 @@ function handleAction(tag){
           if (state['52G_Brk_Var'] && state.AVR_On){
             state.Gen_kV_SP  = 13.8;
           } else {
-            state.Gen_kV_SP  = 13.5;
+            state.Gen_kV_SP  = 13.4;
           }
           kvRamp.active = true;
           kvRamp.from = state.Gen_kV_Var;
@@ -1889,6 +1889,7 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
 
