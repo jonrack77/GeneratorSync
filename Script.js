@@ -302,15 +302,9 @@ const FREQ_GATE_THRESH_PCT = 20;   // gate % breakpoint for frequency
 const FREQ_GATE_LOW_HZ_PER_PCT = 3;    // Hz per % gate below threshold
 const FREQ_GATE_HIGH_HZ_PER_PCT = 0.375; // Hz per % gate above threshold
 const FREQ_GATE_HIGH_INTERCEPT_HZ = 52.5; // offset for high range
-const FREQ_ACCEL_HZ_S = 6;    // max rise rate (Hz/s)
 const FREQ_DECEL_HZ_S = 3;   // fixed fall rate (Hz/s) when raw < current
 const FREQ_DECEL_SLOW_THRESH_HZ = 20; // Hz threshold to slow decel
 const FREQ_DECEL_SLOW_HZ_S = FREQ_DECEL_HZ_S / .25; // half-rate below threshold
-// Zone near synchronous speed with reduced accel/decel
-const FREQ_SYNC_LOW_HZ  = 59;  // lower bound for slower band
-const FREQ_SYNC_HIGH_HZ = 61;  // upper bound for slower band
-const FREQ_ACCEL_SYNC_HZ_S = .1; // accel rate within band
-const FREQ_DECEL_SYNC_HZ_S = .1; // decel rate within band
 
 // AVR line-drop compensation (disabled if 0)
 const AVR_LDC_PU = 0.00;
@@ -512,10 +506,6 @@ function handleAction(tag){
         kvRamp.to   = 0;
         kvRamp.dur  = KV_RAMP_MS;
         kvRamp.t0   = performance.now();
-        if(state['52G_Brk_Var']){
-          logFlag('Trip_40', true);
-          try{ handleAction('86G_TRIP'); }catch(_){ }
-        }
       }
       break;
 
@@ -564,7 +554,6 @@ function handleAction(tag){
         state['52G_Brk_Var'] = false;
         delete state.NoLoadGateCal;
         try{ logDebug('52G: OPEN'); }catch(_){}
-        handleAction('86G_TRIP');
       }
       break;
 
@@ -734,7 +723,7 @@ function handleAction(tag){
   /* ///////////// Section 5.J updateGateSet (Knob_65) ///////////// */
   function updateGateSet(){
     const NUDGE_THRESH = 20;            // degrees
-    const NUDGE_RATE_OPEN   = 1;        // %/s when 52G OPEN
+    const NUDGE_RATE_OPEN   = 0.125;    // %/s when 52G OPEN
     const NUDGE_RATE_CLOSED = 10;       // %/s when 52G CLOSED
     const NUDGE_RATE = state['52G_Brk_Var'] ? NUDGE_RATE_CLOSED : NUDGE_RATE_OPEN;
 
@@ -746,14 +735,14 @@ function handleAction(tag){
     const a65 = angleOf('Knob_65') || 0;
 
     if (a65 >= NUDGE_THRESH){
-      Gate_Setpoint = Math.min(100, Gate_Setpoint + NUDGE_RATE * dt);
-      if (updateGateSet._lastLog == null || Math.abs(Gate_Setpoint - updateGateSet._lastLog) >= 0.5){
-        updateGateSet._lastLog = Gate_Setpoint;
-      }
-    } else if (a65 <= -NUDGE_THRESH){
-      Gate_Setpoint = Math.max(0, Gate_Setpoint - NUDGE_RATE * dt);
-      if (updateGateSet._lastLog == null || Math.abs(Gate_Setpoint - updateGateSet._lastLog) >= 0.5){
-        updateGateSet._lastLog = Gate_Setpoint;
+  Gate_Setpoint = Math.min(100, Gate_Setpoint + NUDGE_RATE * dt);
+  if (updateGateSet._lastLog == null || Math.abs(Gate_Setpoint - updateGateSet._lastLog) >= 0.5){
+    updateGateSet._lastLog = Gate_Setpoint;
+  }
+} else if (a65 <= -NUDGE_THRESH){
+  Gate_Setpoint = Math.max(0, Gate_Setpoint - NUDGE_RATE * dt);
+  if (updateGateSet._lastLog == null || Math.abs(Gate_Setpoint - updateGateSet._lastLog) >= 0.5){
+    updateGateSet._lastLog = Gate_Setpoint;
       }
     }
   }
@@ -892,18 +881,11 @@ function updatePhysics(){
     const curr   = +state.Gen_Freq_Var || 0;
     const dt_s   = Math.max(0, dt) / 1000;
 
-    // Apply the slower sync band only when actively syncing
-    const anyTrip = state.Trip_32 || state.Trip_40 || state.Trip_27_59 || state.Trip_81 || state['86G_Trip_Var'];
-    const masterStop = stopRamp.active === true;
-    const syncing = state.Sync_On && !anyTrip && !masterStop;
-    const inSyncBand = syncing && curr >= FREQ_SYNC_LOW_HZ && curr <= FREQ_SYNC_HIGH_HZ;
+    const decelRate = (curr > FREQ_DECEL_SLOW_THRESH_HZ)
+      ? FREQ_DECEL_HZ_S
+      : FREQ_DECEL_SLOW_HZ_S;
 
-    const accelRate = inSyncBand ? FREQ_ACCEL_SYNC_HZ_S : FREQ_ACCEL_HZ_S;
-    const decelRate = inSyncBand ? FREQ_DECEL_SYNC_HZ_S
-      : (curr > FREQ_DECEL_SLOW_THRESH_HZ ? FREQ_DECEL_HZ_S : FREQ_DECEL_SLOW_HZ_S);
-
-    const delta = raw - curr;
-    const next = curr + clamp(delta, -decelRate * dt_s, accelRate * dt_s);
+    const next   = (raw >= curr) ? raw : Math.max(raw, curr - decelRate * dt_s);
 
     state.Gen_Freq_Var = clamp(next, 0, 94);
     state.Gen_RPM_Var  = state.Gen_Freq_Var * 1.667;
@@ -1517,10 +1499,10 @@ requestAnimationFrame(tick);
         let msg;
         switch(code){
           case '32': msg = on ? 'Reverse Power Active' : 'Reverse Power Detected'; break;
-          case '55': msg = on ? 'Power Factor Alarm' : 'Power Factor Normal'; break;
+          case '55': msg = on ? 'Power Factor Abnormal' : 'Power Factor Normal'; break;
           case '27': msg = on ? 'Undervoltage Alarm' : 'Voltage Normal'; break;
           case '59': msg = on ? 'Overvoltage Alarm' : 'Voltage Normal'; break;
-          case '81': msg = on ? 'Frequency Alarm' : 'Frequency Normal'; break;
+          case '81': msg = on ? 'Frequency Abnormal' : 'Frequency Normal'; break;
           default:   msg = `ALARM ${code}: ${on ? 'ACTIVE' : 'FALSE'}`;
         }
         try { logDebug(msg); } catch(_) {}
@@ -1648,7 +1630,6 @@ requestAnimationFrame(tick);
     PROT.t40B = t40 ? PROT.t40B + dt : 0;
     if (!S.Trip_40 && (PROT.t40A >= 0.05 || PROT.t40B >= 0.05)) {
       logFlag('Trip_40', true);
-      try { handleAction('86G_TRIP'); } catch(_) {}
     }
 
     // 27/59 — Voltage trips (0.5 s either side)
@@ -1915,32 +1896,3 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
