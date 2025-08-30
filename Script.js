@@ -887,7 +887,12 @@ function updatePhysics(){
     const curr   = +state.Gen_Freq_Var || 0;
     const dt_s   = Math.max(0, dt) / 1000;
 
-    const inSyncBand = curr >= FREQ_SYNC_LOW_HZ && curr <= FREQ_SYNC_HIGH_HZ;
+    // Apply the slower sync band only when actively syncing
+    const anyTrip = state.Trip_32 || state.Trip_40 || state.Trip_27_59 || state.Trip_81 || state['86G_Trip_Var'];
+    const masterStop = stopRamp.active === true;
+    const syncing = state.Sync_On && !anyTrip && !masterStop;
+    const inSyncBand = syncing && curr >= FREQ_SYNC_LOW_HZ && curr <= FREQ_SYNC_HIGH_HZ;
+
     const accelRate = inSyncBand ? FREQ_ACCEL_SYNC_HZ_S : FREQ_ACCEL_HZ_S;
     const decelRate = inSyncBand ? FREQ_DECEL_SYNC_HZ_S
       : (curr > FREQ_DECEL_SLOW_THRESH_HZ ? FREQ_DECEL_HZ_S : FREQ_DECEL_SLOW_HZ_S);
