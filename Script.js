@@ -729,7 +729,7 @@ function handleAction(tag){
   /* ///////////// Section 5.J updateGateSet (Knob_65) ///////////// */
   function updateGateSet(){
     const NUDGE_THRESH = 20;            // degrees
-    const NUDGE_RATE_OPEN   = 1;    // %/s when 52G OPEN
+    const NUDGE_RATE_OPEN   = 1;        // %/s when 52G OPEN
     const NUDGE_RATE_CLOSED = 10;       // %/s when 52G CLOSED
     const NUDGE_RATE = state['52G_Brk_Var'] ? NUDGE_RATE_CLOSED : NUDGE_RATE_OPEN;
 
@@ -740,16 +740,28 @@ function handleAction(tag){
 
     const a65 = angleOf('Knob_65') || 0;
 
-    if (a65 >= NUDGE_THRESH){
-  Gate_Setpoint = Math.min(100, Gate_Setpoint + NUDGE_RATE * dt);
-  if (updateGateSet._lastLog == null || Math.abs(Gate_Setpoint - updateGateSet._lastLog) >= 0.5){
-    updateGateSet._lastLog = Gate_Setpoint;
-  }
-} else if (a65 <= -NUDGE_THRESH){
-  Gate_Setpoint = Math.max(0, Gate_Setpoint - NUDGE_RATE * dt);
-  if (updateGateSet._lastLog == null || Math.abs(Gate_Setpoint - updateGateSet._lastLog) >= 0.5){
-    updateGateSet._lastLog = Gate_Setpoint;
+    if (Math.abs(a65) >= NUDGE_THRESH) {
+      const dir = Math.sign(a65);
+      if (updateGateSet._pendingDir !== dir) {
+        updateGateSet._pendingDir = dir;
+        updateGateSet._startTime = now;
       }
+      if (now - (updateGateSet._startTime || 0) >= 1000) {
+        if (dir > 0) {
+          Gate_Setpoint = Math.min(100, Gate_Setpoint + NUDGE_RATE * dt);
+        } else {
+          Gate_Setpoint = Math.max(0, Gate_Setpoint - NUDGE_RATE * dt);
+        }
+        if (
+          updateGateSet._lastLog == null ||
+          Math.abs(Gate_Setpoint - updateGateSet._lastLog) >= 0.5
+        ) {
+          updateGateSet._lastLog = Gate_Setpoint;
+        }
+      }
+    } else {
+      updateGateSet._pendingDir = 0;
+      updateGateSet._startTime = null;
     }
   }
 
