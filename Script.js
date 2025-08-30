@@ -740,28 +740,16 @@ function handleAction(tag){
 
     const a65 = angleOf('Knob_65') || 0;
 
-    if (Math.abs(a65) >= NUDGE_THRESH) {
-      const dir = Math.sign(a65);
-      if (updateGateSet._pendingDir !== dir) {
-        updateGateSet._pendingDir = dir;
-        updateGateSet._startTime = now;
+    if (a65 >= NUDGE_THRESH){
+      Gate_Setpoint = Math.min(100, Gate_Setpoint + NUDGE_RATE * dt);
+      if (updateGateSet._lastLog == null || Math.abs(Gate_Setpoint - updateGateSet._lastLog) >= 0.5){
+        updateGateSet._lastLog = Gate_Setpoint;
       }
-      if (now - (updateGateSet._startTime || 0) >= 1000) {
-        if (dir > 0) {
-          Gate_Setpoint = Math.min(100, Gate_Setpoint + NUDGE_RATE * dt);
-        } else {
-          Gate_Setpoint = Math.max(0, Gate_Setpoint - NUDGE_RATE * dt);
-        }
-        if (
-          updateGateSet._lastLog == null ||
-          Math.abs(Gate_Setpoint - updateGateSet._lastLog) >= 0.5
-        ) {
-          updateGateSet._lastLog = Gate_Setpoint;
-        }
+    } else if (a65 <= -NUDGE_THRESH){
+      Gate_Setpoint = Math.max(0, Gate_Setpoint - NUDGE_RATE * dt);
+      if (updateGateSet._lastLog == null || Math.abs(Gate_Setpoint - updateGateSet._lastLog) >= 0.5){
+        updateGateSet._lastLog = Gate_Setpoint;
       }
-    } else {
-      updateGateSet._pendingDir = 0;
-      updateGateSet._startTime = null;
     }
   }
 
