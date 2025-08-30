@@ -302,6 +302,7 @@ const FREQ_GATE_THRESH_PCT = 20;   // gate % breakpoint for frequency
 const FREQ_GATE_LOW_HZ_PER_PCT = 3;    // Hz per % gate below threshold
 const FREQ_GATE_HIGH_HZ_PER_PCT = 0.375; // Hz per % gate above threshold
 const FREQ_GATE_HIGH_INTERCEPT_HZ = 52.5; // offset for high range
+const FREQ_ACCEL_HZ_S = 3;    // max rise rate (Hz/s)
 const FREQ_DECEL_HZ_S = 3;   // fixed fall rate (Hz/s) when raw < current
 const FREQ_DECEL_SLOW_THRESH_HZ = 20; // Hz threshold to slow decel
 const FREQ_DECEL_SLOW_HZ_S = FREQ_DECEL_HZ_S / .25; // half-rate below threshold
@@ -885,7 +886,10 @@ function updatePhysics(){
       ? FREQ_DECEL_HZ_S
       : FREQ_DECEL_SLOW_HZ_S;
 
-    const next   = (raw >= curr) ? raw : Math.max(raw, curr - decelRate * dt_s);
+    const accelRate = FREQ_ACCEL_HZ_S;
+    const delta = raw - curr;
+    const maxStep = (delta > 0 ? accelRate : decelRate) * dt_s;
+    const next = curr + clamp(delta, -decelRate * dt_s, accelRate * dt_s);
 
     state.Gen_Freq_Var = clamp(next, 0, 94);
     state.Gen_RPM_Var  = state.Gen_Freq_Var * 1.667;
