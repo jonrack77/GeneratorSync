@@ -446,7 +446,7 @@ function handleAction(tag){
           stopRamp.active = false;
           gateRamp.active = true;
           gateRamp.from = (typeof Gate_Setpoint === 'number') ? Gate_Setpoint : 0;
-          gateRamp.to   = 19.67;
+          gateRamp.to   = 19.75;
           gateRamp.dur  = 3000;
           gateRamp.t0   = performance.now();
         }
@@ -484,7 +484,7 @@ function handleAction(tag){
           if (state['52G_Brk_Var'] && state.AVR_On){
             state.Gen_kV_SP  = 13.8;
           } else {
-            state.Gen_kV_SP  = 13.0;
+            state.Gen_kV_SP  = 13.5;
           }
           kvRamp.active = true;
           kvRamp.from = state.Gen_kV_Var;
@@ -1889,6 +1889,7 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
 
 
 
