@@ -1648,6 +1648,7 @@ requestAnimationFrame(tick);
     PROT.t40B = t40 ? PROT.t40B + dt : 0;
     if (!S.Trip_40 && (PROT.t40A >= 0.05 || PROT.t40B >= 0.05)) {
       logFlag('Trip_40', true);
+      try { handleAction('86G_TRIP'); } catch(_) {}
     }
 
     // 27/59 — Voltage trips (0.5 s either side)
