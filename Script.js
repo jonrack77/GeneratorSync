@@ -729,7 +729,7 @@ function handleAction(tag){
   /* ///////////// Section 5.J updateGateSet (Knob_65) ///////////// */
   function updateGateSet(){
     const NUDGE_THRESH = 20;            // degrees
-    const NUDGE_RATE_OPEN   = 1;    // %/s when 52G OPEN
+    const NUDGE_RATE_OPEN   = 1;        // %/s when 52G OPEN
     const NUDGE_RATE_CLOSED = 10;       // %/s when 52G CLOSED
     const NUDGE_RATE = state['52G_Brk_Var'] ? NUDGE_RATE_CLOSED : NUDGE_RATE_OPEN;
 
@@ -739,16 +739,41 @@ function handleAction(tag){
     updateGateSet._tPrev = now;
 
     const a65 = angleOf('Knob_65') || 0;
+    if (Math.abs(a65) >= NUDGE_THRESH) {
+      const dir = Math.sign(a65);
+      if (updateGateSet._pendingDir !== dir) {
+        updateGateSet._pendingDir = dir;
+        updateGateSet._startTime = now;
+        updateGateSet._queued = 0;
+      }
+      updateGateSet._queued = (updateGateSet._queued || 0) + dt;
+    } else if (!updateGateSet._queued) {
+      updateGateSet._pendingDir = 0;
+      updateGateSet._startTime = null;
+    }
 
-    if (a65 >= NUDGE_THRESH){
-  Gate_Setpoint = Math.min(100, Gate_Setpoint + NUDGE_RATE * dt);
-  if (updateGateSet._lastLog == null || Math.abs(Gate_Setpoint - updateGateSet._lastLog) >= 0.5){
-    updateGateSet._lastLog = Gate_Setpoint;
-  }
-} else if (a65 <= -NUDGE_THRESH){
-  Gate_Setpoint = Math.max(0, Gate_Setpoint - NUDGE_RATE * dt);
-  if (updateGateSet._lastLog == null || Math.abs(Gate_Setpoint - updateGateSet._lastLog) >= 0.5){
-    updateGateSet._lastLog = Gate_Setpoint;
+    if (
+      updateGateSet._pendingDir &&
+      updateGateSet._startTime &&
+      now - updateGateSet._startTime >= 1000 &&
+      updateGateSet._queued > 0
+    ) {
+      const consume = Math.min(dt, updateGateSet._queued);
+      if (updateGateSet._pendingDir > 0) {
+        Gate_Setpoint = clamp(Gate_Setpoint + NUDGE_RATE * consume, 0, 100);
+      } else {
+        Gate_Setpoint = clamp(Gate_Setpoint - NUDGE_RATE * consume, 0, 100);
+      }
+      updateGateSet._queued -= consume;
+      if (
+        updateGateSet._lastLog == null ||
+        Math.abs(Gate_Setpoint - updateGateSet._lastLog) >= 0.5
+      ) {
+        updateGateSet._lastLog = Gate_Setpoint;
+      }
+      if (updateGateSet._queued <= 0 && Math.abs(a65) < NUDGE_THRESH) {
+        updateGateSet._pendingDir = 0;
+        updateGateSet._startTime = null;
       }
     }
   }
