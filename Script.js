@@ -246,7 +246,7 @@ const state = {
   AVR_On:false,
   Sync_On:false,
 
-  // NEW: Latches TRUE when 52G closes; does NOT auto-unlatch on open
+  // Latches TRUE when 52G closes; does NOT auto-unlatch on open
   GeneratorOnline:false,
 
   '41_Brk_Var':false,     // field breaker
@@ -352,7 +352,7 @@ const WATCH = [
 ];
 const prevAngles = Object.create(null);
 
-/* ///////////// Section 5.G setFlag86 (REPLACE this section) ///////////// */
+/* ///////////// Section 5.G setFlag86  ///////////// */
 function setFlag86(){
   try{
     const el = document.getElementById('Flag_86G');
@@ -587,7 +587,7 @@ function handleAction(tag){
 
 
 /* ///////////// Section 5.H.1 Enforce 86G Permissive on MASTER_START (add-on) ///////////// */
-/* Place this AFTER Section 5.H (so handleAction exists). */
+
 (function Enforce86GPermOnStart(){
   const S = window.SimState || window.state || (window.state = {});
   const _old = window.handleAction;
@@ -795,7 +795,7 @@ function updateSyncCheck(){
   }
 }
 
-/* ///////////// Section 5.M updatePhysics (governor/AVR/power) — REPLACE ENTIRE SECTION ///////////// */
+/* ///////////// Section 5.M updatePhysics (governor/AVR/power)  ///////////// */
 function updatePhysics(){
   if (!state.Master_Started) {
     gateRamp.active = false;
@@ -1466,7 +1466,7 @@ requestAnimationFrame(tick);
 })();
 
 
-/* ///////////// Section 5.Z Protections (add-on; REPLACE this whole section) ///////////// */
+/* ///////////// Section 5.Z Protections ///////////// */
 (function ProtectionsAddon(){
   const S = window.SimState || window.state || (window.state = {});
   Object.assign(S, {
@@ -1790,7 +1790,7 @@ requestAnimationFrame(tick);
   }
 })();
 
-/* ///////////// Section 5.Z3 — Reset Handler (fixed) ///////////// */
+/* ///////////// Section 5.Z3 — Reset Handler///////////// */
 (function ResetHandler(){
   function doReset(){
     // Clear all auto trip latches (both internal vars and manager flags)
@@ -1896,3 +1896,4 @@ requestAnimationFrame(tick);
   document.addEventListener("DOMContentLoaded", updateRPMText);
 
 })();
+
